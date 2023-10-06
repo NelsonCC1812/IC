@@ -1,0 +1,2 @@
+default_port: /dev/cu.usbmodem141301
+default_fqbn: arduino:samd:mkrwan1310
