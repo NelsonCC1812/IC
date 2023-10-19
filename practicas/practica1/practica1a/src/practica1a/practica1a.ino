@@ -21,7 +21,7 @@ volatile uint32_t lastTime = 0;
 volatile int ctrl = -1;
 
 void setup() {
-  
+
   // LED config
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, LOW);
@@ -38,14 +38,14 @@ void setup() {
 
   // INIT USB port
   SerialUSB.begin(9600);
-  while(!SerialUSB){;}
-  
+  while (!SerialUSB) { ; }
+
   flash.begin();
 
   SerialUSB.println("Mounting...");
-  int res =  filesystem.mount();
+  int res = filesystem.mount();
 
-  if(res != SPIFFS_OK && res != SPIFFS_ERR_NOT_A_FS){
+  if (res != SPIFFS_OK && res != SPIFFS_ERR_NOT_A_FS) {
     SerialUSB.println("mount() faild with error code ");
     SerialUSB.println(res);
     exit(EXIT_FAILURE);
@@ -60,8 +60,8 @@ void setup() {
   SerialUSB.print(__DATE__);
   SerialUSB.print("  ");
   SerialUSB.println(__TIME__);
-  
-  if(!setDateTime(__DATE__, __TIME__)){
+
+  if (!setDateTime(__DATE__, __TIME__)) {
     Serial.println("ERROR");
   }
 
@@ -72,7 +72,7 @@ void setup() {
 }
 
 void loop() {
-  if(ctrl == 999){
+  if (ctrl == 999) {
     filesystem.unmount();
     exit(0);
   }
@@ -85,97 +85,97 @@ void loop() {
   LowPower.sleep();
 }
 
-bool setDateTime(const char* date_str, const char* time_str){
+bool setDateTime(const char* date_str, const char* time_str) {
 
   char month_str[4];
-  char months[12][4] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug",
-                        "Sep", "Oct", "Nov", "Dec"};
+  char months[12][4] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug",
+                        "Sep", "Oct", "Nov", "Dec" };
   uint16_t i, mday, month, hour, min, sec, year;
 
-  if(sscanf(date_str, "%3s %hu %hu", &month_str, &mday, &year) != 3) return false;
-  if(sscanf(time_str, "%hu:%hu:%hu", &hour, &min, &sec) != 3) return false;
+  if (sscanf(date_str, "%3s %hu %hu", &month_str, &mday, &year) != 3) return false;
+  if (sscanf(time_str, "%hu:%hu:%hu", &hour, &min, &sec) != 3) return false;
 
-  for(i = 0; i < 12; i++){
-    if(!strncmp(month_str, months[i], 3)){
+  for (i = 0; i < 12; i++) {
+    if (!strncmp(month_str, months[i], 3)) {
       month = i + 1;
       break;
     }
   }
 
-  if(i == 12) return false;
+  if (i == 12) return false;
 
-  rtc.setTime((uint8_t)hour,(uint8_t)min,(uint8_t)sec);
-  rtc.setDate((uint8_t)mday,(uint8_t)month,(uint8_t)(year - 2000));
+  rtc.setTime((uint8_t)hour, (uint8_t)min, (uint8_t)sec);
+  rtc.setDate((uint8_t)mday, (uint8_t)month, (uint8_t)(year - 2000));
   return true;
 }
 
-void setPeriodicAlarm( uint32_t period_sec, uint32_t _offset_sec){
+void setPeriodicAlarm(uint32_t period_sec, uint32_t _offset_sec) {
   _period_sec = period_sec;
   rtc.setAlarmEpoch(rtc.getEpoch() + _offset_sec);
   rtc.enableAlarm(rtc.MATCH_YYMMDDHHMMSS);
 }
 
-void alarmCallback(){
+void alarmCallback() {
   ctrl = 0;
 }
 
-void externalCallback(){
+void externalCallback() {
   currentTime = millis();
-  if(currentTime <= lastTime + 200){
+  if (currentTime <= lastTime + 200) {
     lastTime = currentTime;
     return;
   }
   ctrl = 1;
 }
 
-void closing(){
+void closing() {
   currentTime = millis();
-  if(currentTime <= lastTime + 200){
+  if (currentTime <= lastTime + 200) {
     lastTime = currentTime;
     return;
   }
   ctrl = 999;
 }
 
-void printDateTime(bool isExternal){
-  const char *weekDay[7] = {"Sun", "Mon", "Tue", "Wed", "Thr", "Fri", "Sat"};
+void printDateTime(bool isExternal) {
+  const char* weekDay[7] = { "Sun", "Mon", "Tue", "Wed", "Thr", "Fri", "Sat" };
 
   time_t epoch = rtc.getEpoch();
   struct tm stm;
   gmtime_r(&epoch, &stm);
 
   char dateTime[38];
-  if(isExternal)
-  snprintf(dateTime, sizeof(dateTime), "%s %4u/%02u/%02u %02u:%02u:%02u - EXT\n",
-    weekDay[stm.tm_wday],
-    stm.tm_year + 1900, stm.tm_mon + 1, stm.tm_mday,
-    stm.tm_hour, stm.tm_min, stm.tm_sec);
+  if (isExternal)
+    snprintf(dateTime, sizeof(dateTime), "%s %4u/%02u/%02u %02u:%02u:%02u - EXT\n",
+      weekDay[stm.tm_wday],
+      stm.tm_year + 1900, stm.tm_mon + 1, stm.tm_mday,
+      stm.tm_hour, stm.tm_min, stm.tm_sec);
   else
-  snprintf(dateTime, sizeof(dateTime), "%s %4u/%02u/%02u %02u:%02u:%02u\n",
-    weekDay[stm.tm_wday],
-    stm.tm_year + 1900, stm.tm_mon + 1, stm.tm_mday,
-    stm.tm_hour, stm.tm_min, stm.tm_sec);
+    snprintf(dateTime, sizeof(dateTime), "%s %4u/%02u/%02u %02u:%02u:%02u\n",
+      weekDay[stm.tm_wday],
+      stm.tm_year + 1900, stm.tm_mon + 1, stm.tm_mday,
+      stm.tm_hour, stm.tm_min, stm.tm_sec);
 
-    writeFile(filename, dateTime, strlen(dateTime));
+  writeFile(filename, dateTime, strlen(dateTime));
 }
 
-char writeFile(char* filename, char* data,size_t sz){
+char writeFile(char* filename, char* data, size_t sz) {
 
   File file = filesystem.open(filename, WRITE_ONLY | APPEND);
-  if(!file){
+  if (!file) {
     SerialUSB.println("ERROR opening the file");
     exitError();
   }
 
-  int const writtenData = file.write((void *)data, sz);
-  if(writtenData != sz){
+  int const writtenData = file.write((void*)data, sz);
+  if (writtenData != sz) {
     SerialUSB.println("ERROR writting the file");
     exitError();
   }
   file.close();
 }
 
-void exitError(){
+void exitError() {
   filesystem.unmount();
   exit(EXIT_FAILURE);
 }
