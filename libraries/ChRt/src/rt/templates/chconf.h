@@ -116,7 +116,7 @@
  *          infinite loop.
  */
 #if !defined(CH_CFG_NO_IDLE_THREAD)
-#define CH_CFG_NO_IDLE_THREAD               FALSE
+#define CH_CFG_NO_IDLE_THREAD               TRUE
 #endif
 
 /** @} */
@@ -614,7 +614,7 @@
  *          tickless mode.
  */
 #if !defined(CH_DBG_THREADS_PROFILING)
-#define CH_DBG_THREADS_PROFILING            FALSE
+#define CH_DBG_THREADS_PROFILING            TRUE
 #endif
 
 /** @} */
