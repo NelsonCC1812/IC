@@ -1,0 +1,5 @@
+PRÁCTICA 1B
+
+Para la realización de esta práctica hemos definido dos variables globales para establecer un valor mínimo y máximo. Con dichos valores creamos una función para obtener un valor aleatorio entre las variables antes mencionadas. Estos valores se establecen como carga de cada worker. Para que cada worker tengan su propia carga independiente hemos creado una variable por cada hilo de worker.
+
+Por último, una vez ya obtenido las cargas de cada hilo, hemos creado una función para calcular el periodo correspondiente de ese hilo, de esa forma si tenemos diferentes cargas, obtenemos la proporción correspondiente del periodo para estabalizarlo a un mismo nivel en común para los diferentes hilos worker.
