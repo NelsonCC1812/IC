@@ -2,14 +2,14 @@
 
 #define USS_COMMAND 0x00
 
-void writeCommand(byte addr, byte command) {
+void uss_writeCommand(byte addr, byte command) {
     Wire.beginTransmission(addr);
     Wire.write(USS_COMMAND);
     Wire.write(command);
     Wire.endTransmission();
 }
 
-byte read_register(byte addr, byte the_register) {
+byte uss_readRegister(byte addr, byte the_register) {
     Wire.beginTransmission(address);
     Wire.write(the_register);
     Wire.endTransmission();
