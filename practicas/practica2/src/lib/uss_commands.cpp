@@ -1,3 +1,4 @@
+#include <arduino.h>
 #include <Wire.h>
 
 #define USS_COMMAND 0x00
@@ -10,11 +11,12 @@ void uss_writeCommand(byte addr, byte command) {
 }
 
 byte uss_readRegister(byte addr, byte the_register) {
-    Wire.beginTransmission(address);
+    Wire.beginTransmission(addr);
     Wire.write(the_register);
     Wire.endTransmission();
 
-    Wire.requestFrom(byte addr, byte(1));
+    Wire.requestFrom(
+        addr, byte(1));
     while (!Wire.available()) {}
     return Wire.read();
 }

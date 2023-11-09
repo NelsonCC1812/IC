@@ -1,20 +1,21 @@
 #include <Wire.h>
+#include <SSD1306AsciiWire.h>
 
-#define USS_COMMAND 0x00
+#include "oled_commands.h"
+#include "uss_commands.h"
 
-void writeCommand(byte addr, byte command) {
-    Wire.beginTransmission(addr);
-    Wire.write(USS_COMMAND);
-    Wire.write(command);
-    Wire.endTransmission();
+extern SSD1306AsciiWire oled;
+
+void setup() {
+    Wire.begin();
+    oled.init(0);
 }
 
-byte read_register(byte addr, byte the_register) {
-    Wire.beginTransmission(address);
-    Wire.write(the_register);
-    Wire.endTransmission();
+uint8_t idx = 0;
+char bff[100];
 
-    Wire.requestFrom(byte addr, byte(1));
-    while (!Wire.available()) {}
-    return Wire.read();
+void loop() {
+    snprintf(bff, 100, "%d", idx++);
+    oled.print(bff);
+    delay(1000);
 }
