@@ -28,5 +28,8 @@ void loop() {
 }
 
 void writeCommand(byte command) {
-    Wire.beginTransmission(USS_ORIGINAL_ADDR); Wire.write(USS_COMMAND);  Wire.write(command); Wire.endTransmission();
+    Wire.beginTransmission(USS_ORIGINAL_ADDR);
+    Wire.write(USS_COMMAND);
+    Wire.write(command);
+    Wire.endTransmission();
 }
