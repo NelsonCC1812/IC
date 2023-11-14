@@ -5,9 +5,12 @@
 #include "oled_commands.h"
 #include "uss_commands.h"
 
+// constants
+#define COMMAND_SIZE 4
+
 // *=> vars
 
-String command[] = { "", "", "", "" };  // almacena el comando
+String command[COMMAND_SIZE] = { "", "", "", "" };  // almacena el comando
 String str;                             // almacena el string que leemos por consola
 String cmp = "algo";                    // -
 uint8_t idx, idx0, idx1;                // punteros para el buildCommand
@@ -25,8 +28,9 @@ void setup() {
 }
 
 void loop() {
-    getConsoleData() &&
-        buildCommand();
+
+    if (getConsoleData() && buildCommand())
+        Serial.println(command[0] + command[1] + command[2] + command[3] + "-");
 
     //if (str.length() > 0)  Serial.println("> " + String(str == cmp));
 }
@@ -46,22 +50,25 @@ bool getConsoleData() {
 
 bool buildCommand() {
 
-    for (idx = 0; idx < command.length(); ++idx) command[idx] = "";
+    for (idx = 0; idx < COMMAND_SIZE; ++idx) command[idx] = "";
     idx0 = 0, idx = 0;
 
-    while (str.length() > idx0) {
+    while (idx0 < str.length() && idx < COMMAND_SIZE) {
         idx1 = str.indexOf(" ", idx0 + 1);
         command[idx++] = str.substring(idx0, idx1);
-        buff.trim();
+
         idx0 = idx1;
+
+        while (str.charAt(idx0 + 1) == ' ' && idx0 < str.length()) idx0++;
     }
 
-    return true;
+
+    return str.indexOf(" ", idx0) == str.lastIndexOf("") ? true : false;
 }
 
-bool buildSegment() {
+// bool buildSegment() {
 
-}
+// }
 
 
 // console commands
