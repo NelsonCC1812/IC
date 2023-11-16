@@ -4,6 +4,8 @@
 // constants
 #define COMMAND_SIZE 4
 #define US_QUANTITY 2
+#define MAX_US_ADDR 15
+#define MIN_US_ADDR 0
 
 
 // *=> vars
@@ -14,9 +16,8 @@ uint8_t idx, idx0, idx1;                            // punteros para el buildCom
 uint8_t tmp;                                        // int temporal para algunos calculos internos
 uint8_t extra;
 byte segment;
-bool waitingResponse = false;
 byte segments[2];
-
+uint8_t code = 0; // us: 5, status: 4
 
 // function headers
 bool getConsoleData();
@@ -28,7 +29,6 @@ bool receiveSegments();
 bool playSegment();
 
 bool c_help();
-bool c_command5();
 
 
 // *=> main
@@ -37,9 +37,11 @@ void setup() {
     Serial.begin(9600);
     while (!Serial) {}
 
+    Serial1.begin(9600);
+    while (!Serial1) {}
+
     Serial.println("> Start");
 
-    Serial.println(String("00100", BIN));
 }
 
 void loop() {
@@ -61,6 +63,7 @@ bool getConsoleData() {
     return false;
 }
 
+
 bool buildCommand() {
 
     for (idx = 0; idx < COMMAND_SIZE; ++idx) command[idx] = "";
@@ -79,7 +82,8 @@ bool buildCommand() {
     return str.indexOf(" ", idx0) == str.lastIndexOf("") ? true : false;
 }
 
-// TODO
+
+
 bool playCommand() {
 
     segment = x{ 0 };
@@ -95,21 +99,21 @@ bool playCommand() {
             ")\t\nusa el comando help para mas informacion");
         return false;
     }
-    if (command[1] == "") { c_command5(); return true; }
+    if (command[1] == "") { code = 5; sendSegment(0xFF); return true; }
 
     tmp = command[1].charAt(0) - '0';
-    if (tmp < 0 || tmp > US_QUANTITY) {
+    if (tmp <= MIN_US_ADDR || tmp >= MAX_US_ADDR) {
         Serial.println("ERROR: El segundo parametro indica el sensor (0" + String(US_QUANTITY - 1) +
             ")\t\nusa el comando help para mas informacion");
         return false;
     }
 
-    tmp == 1 && segment |= 0b100;
+    segment |= (tmp << 4);
 
     // command[2]
     if (command[2] == "") { Serial.println("ERROR: El comando es incorrecto\n\tusa el comando help para mas informacion"); return false; }
     if (command[2] == "off") { sendSegment(segment); return true; }
-    if (command[2] == "one-shot") { sendSegment(segment | 0b1000); return true; }
+    if (command[2] == "one-shot") { sendSegment(segment | 0b100); return true; }
     if (command[2] == "on") {
         if (command[1] == "") {
             Serial.println("ERROR: El parametro que acompaña a la opción on, no puede estar vacio\n\tusa el comando help para mas informacion");
@@ -123,7 +127,7 @@ bool playCommand() {
         }
 
         extra = tmp;
-        sendSegment(segment | 0b11000, true);
+        sendSegment(segment | 0b1000, true);
         return true;
     }
     if (command[2] == "unit") {
@@ -132,9 +136,9 @@ bool playCommand() {
             return false;
         }
 
-        if (command[3] == "inc") { sendSegment(segment | b1); return true; }
-        if (command[3] == "cm") { sendSegment(segment | 0b01001); return true; }
-        if (command[3] == "ms") { sendSegment(segment | 0b11001); return true; }
+        if (command[3] == "inc") { sendSegment(segment | 0b1); return true; }
+        if (command[3] == "cm") { sendSegment(segment | 0b101); return true; }
+        if (command[3] == "ms") { sendSegment(segment | 0b1001); return true; }
 
         Serial.println("ERROR: Las opciones para el comando unit son {inc, cm, ms}\n\tusa el comando help para mas informacion");
         return false;
@@ -147,7 +151,7 @@ bool playCommand() {
         sendSegment(segment | 0b10, true);
         return true;
     }
-    if (command[2] == "status") { waitingResponse = true; sendSegment(segment | 0b11); return true; }
+    if (command[2] == "status") { code = 4; sendSegment(segment | 0b11); return true; }
 
 
     Serial.println("ERROR: Haz introducido un comando incorrecto\n\tusa el comando help para mas informacion");
@@ -155,12 +159,11 @@ bool playCommand() {
 }
 
 
-// TODO
 bool sendSegment(byte segment, bool haveExtra) {
     Serial1.write(segment);
     haveExtra&& Serial1.write(extra);
 
-    if (!waitingResponse && receiveSegment() == 0b10100101) {
+    if ((code != 4 || code != 5) && receiveSegment() == 0xFF) {
         Serial.println("Comando ejecutado correctamente");
         return true;
     }
@@ -169,6 +172,7 @@ bool sendSegment(byte segment, bool haveExtra) {
     playSegment();
     return true;
 }
+
 
 bool receiveSegments() {
     idx = 0;
@@ -179,10 +183,23 @@ bool receiveSegments() {
     return true
 }
 
+
 bool playSegment() {
-    Serial1.println("\nAddress: " + String(segments[0] & 0b1)
-        + "\nMin-delay: " + String(int(segments[1]))
-        + "\nPeriodic-on: " + (segments[0] & 0b10 ? "yes" : "no"));
+
+    if (code == 4) {
+        Serial.println("\nAddress: " + String(segments[0] & 0b11110)
+            + "\nMin-delay: " + String(int(segments[1]))
+            + "\nPeriodic-on: " + (segments[0] & 0b1 ? "yes" : "no"));
+        return true;
+    }
+
+    if (code == 5) {
+        Serial.println("\nSensor 0: " + String(segments[0] & 0b1111)
+            + "\nSensor 1: " + String(segments[0] & ~0b1111));
+        return true;
+    }
+
+    return false;
 }
 
 
@@ -198,15 +215,11 @@ bool c_help() {
     return true;
 }
 
-bool c_command5() {
-    return false;
-}
-
 
 
 /** // TODO
  *
- * invertido codigo operacion: 2 | sensor 1 | opcion: 1-2
+ * invertido codigo operacion: 2 | sensor 0-16 | opcion: 1-2
  *
  *  00: 1 |         | 00: off, 01: one-shot, 11: period_ms (si es 1 se le añade un 0 delante o al final)
  *  01: 2 | unit    | 00: inc, 01: cm, 11: ms
