@@ -6,6 +6,7 @@
 #define US_QUANTITY 2
 #define MAX_US_ADDR 15
 #define MIN_US_ADDR 0
+#define MAX_SERIAL_TIME 100
 
 
 // *=> vars
@@ -18,6 +19,7 @@ uint8_t extra;
 byte segment;
 byte segments[2];
 uint8_t code = 255; // on: 0, us: 5, status: 4
+uint32_t time;
 
 // function headers
 bool getConsoleData();
@@ -85,6 +87,7 @@ bool buildCommand() {
 bool playCommand() {
 
     segment = 0;
+    code = 255;
 
     // command[0]
     if (command[0] == "help") { c_help(); return true; }
@@ -152,11 +155,16 @@ bool playCommand() {
 
 
 bool sendSegment(byte segment, bool haveExtra) {
-    Serial1.write(haveExtra ? Serial1.write((segment << 8) | extra) : segment);
+    Serial1.write(segment);
+    haveExtra&& Serial1.write(extra);
 
-    if ((code != 0 || code != 4 || code != 5) && receiveSegments() == 0xFF) {
-        Serial.println("Comando ejecutado correctamente");
-        return true;
+    if ((code != 4 || code != 5)) {
+        if (receiveSegments() == 0xFF) {
+            Serial.println("Comando ejecutado correctamente");
+            return true;
+        }
+
+        Serial.println("La direccion usada para el sensor no es valida");
     }
 
     receiveSegments();
@@ -166,12 +174,21 @@ bool sendSegment(byte segment, bool haveExtra) {
 
 
 bool receiveSegments() {
+    for (idx = 0; idx < 2; idx++) segments[idx] = 0;
     idx = 0;
-    while (Serial1.available() && idx < 2) {
-        segments[idx++] = Serial1.read();
+    if (Serial1.available()) {
+        time = millis();
+        if (Serial1.available()) {
+            while ((millis() - time) < MAX_SERIAL_TIME) {
+                if (Serial1.available())
+                    segments[idx++] = Serial1.read();
+                if (idx >= 2) return true;
+            }
+            return true;
+        }
     }
 
-    return true;
+    return false;
 }
 
 
