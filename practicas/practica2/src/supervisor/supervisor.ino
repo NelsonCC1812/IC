@@ -15,6 +15,7 @@ uint8_t tmp;                                        // int temporal para algunos
 uint8_t extra;
 byte segment;
 bool waitingResponse = false;
+byte segments[2];
 
 
 // function headers
@@ -23,8 +24,8 @@ bool buildCommand();
 bool playCommand();
 bool buildSegment();
 bool sendSegment(String segment, bool haveExtra = false);
-String receiveSegment();
-bool playSegment(String segment);
+bool receiveSegments();
+bool playSegment();
 
 bool c_help();
 bool c_command5();
@@ -164,22 +165,24 @@ bool sendSegment(byte segment, bool haveExtra) {
         return true;
     }
 
-    playSegment(receiveSegment());
+    receiveSegment();
+    playSegment();
     return true;
 }
 
-String receiveSegment() {
-    str = ""
-        while (Serial1.available) {
-            str += Serial.readString() + "";
-        }
-    str = str.trim();
-    return str;
+bool receiveSegments() {
+    idx = 0;
+    while (Serial1.available && idx < 2) {
+        segments[idx++] = Serial1.readBytes();
+    }
+
+    return true
 }
 
-// TODO
-bool playSegment(String segment) {
-
+bool playSegment() {
+    Serial1.println("\nAddress: " + String(segments[0] & 0b1)
+        + "\nMin-delay: " + String(int(segments[1]))
+        + "\nPeriodic-on: " + (segments[0] & 0b10 ? "yes" : "no"));
 }
 
 
