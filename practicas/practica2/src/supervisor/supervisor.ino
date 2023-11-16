@@ -17,14 +17,14 @@ uint8_t tmp;                                        // int temporal para algunos
 uint8_t extra;
 byte segment;
 byte segments[2];
-uint8_t code = 0; // us: 5, status: 4
+uint8_t code = 255; // on: 0, us: 5, status: 4
 
 // function headers
 bool getConsoleData();
 bool buildCommand();
 bool playCommand();
 bool buildSegment();
-bool sendSegment(String segment, bool haveExtra = false);
+bool sendSegment(byte segment, bool haveExtra = false);
 bool receiveSegments();
 bool playSegment();
 
@@ -45,9 +45,7 @@ void setup() {
 }
 
 void loop() {
-
-    // if (getConsoleData())if (!buildCommand()) continue;
-    // buildSegment();
+    getConsoleData() && buildCommand() && playCommand();
 }
 
 // *=> utilities
@@ -76,7 +74,7 @@ bool buildCommand() {
 
         idx0 = idx1;
 
-        while (str.charAt(idx0 + 1) == ' ' && idx0 < str.length()) idx0++;
+        while (str.charAt(idx0) == ' ' && idx0 < str.length()) idx0++;
     }
 
     return str.indexOf(" ", idx0) == str.lastIndexOf("") ? true : false;
@@ -86,24 +84,18 @@ bool buildCommand() {
 
 bool playCommand() {
 
-    segment = x{ 0 };
-    waitingResponse = false;
+    segment = 0;
 
     // command[0]
     if (command[0] == "help") { c_help(); return true; }
     if (command[0] != "us") { Serial.println("ERROR: El comando debe comenzar por us\n\tusa el comando help para mas informacion"); return false; }
 
     // command[1]
-    if (command[1].length() != 1) {
-        Serial.println("ERROR: El segundo parametro indica el sensor (0" + String(US_QUANTITY - 1) +
-            ")\t\nusa el comando help para mas informacion");
-        return false;
-    }
     if (command[1] == "") { code = 5; sendSegment(0xFF); return true; }
 
-    tmp = command[1].charAt(0) - '0';
-    if (tmp <= MIN_US_ADDR || tmp >= MAX_US_ADDR) {
-        Serial.println("ERROR: El segundo parametro indica el sensor (0" + String(US_QUANTITY - 1) +
+    tmp = command[1].toInt();
+    if (tmp < MIN_US_ADDR || tmp > MAX_US_ADDR) {
+        Serial.println("ERROR: El segundo parametro indica el sensor (0-" + String(US_QUANTITY - 1) +
             ")\t\nusa el comando help para mas informacion");
         return false;
     }
@@ -160,15 +152,14 @@ bool playCommand() {
 
 
 bool sendSegment(byte segment, bool haveExtra) {
-    Serial1.write(segment);
-    haveExtra&& Serial1.write(extra);
+    Serial1.write(haveExtra ? Serial1.write((segment << 8) | extra) : segment);
 
-    if ((code != 4 || code != 5) && receiveSegment() == 0xFF) {
+    if ((code != 0 || code != 4 || code != 5) && receiveSegments() == 0xFF) {
         Serial.println("Comando ejecutado correctamente");
         return true;
     }
 
-    receiveSegment();
+    receiveSegments();
     playSegment();
     return true;
 }
@@ -176,11 +167,11 @@ bool sendSegment(byte segment, bool haveExtra) {
 
 bool receiveSegments() {
     idx = 0;
-    while (Serial1.available && idx < 2) {
-        segments[idx++] = Serial1.readBytes();
+    while (Serial1.available() && idx < 2) {
+        segments[idx++] = Serial1.read();
     }
 
-    return true
+    return true;
 }
 
 
