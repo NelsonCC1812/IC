@@ -18,6 +18,9 @@ uint32_t time;
 // *=> functions headers
 
 bool receiveSegments();
+bool receiveSegments();
+bool sensorController();
+bool oledController();
 
 // *=> main
 
@@ -31,7 +34,9 @@ void setup() {
 
 void loop() {
 
-    receiveSegments() && Serial.println("> " + String(segments[0], BIN) + " " + String(segments[1]));
+    receiveSegments() && playSegment();
+    sensorController();
+    oledController();
 
 }
 
@@ -52,4 +57,20 @@ bool receiveSegments() {
     }
 
     return false;
+}
+
+
+// TODO
+bool playSegment() {
+
+}
+
+// TODO
+bool sensorController() {
+
+}
+
+// TODO
+bool oledController() {
+
 }
