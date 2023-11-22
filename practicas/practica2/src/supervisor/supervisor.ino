@@ -6,7 +6,7 @@
 #define US_QUANTITY 2
 #define MAX_US_ADDR 15
 #define MIN_US_ADDR 0
-#define MAX_SERIAL_TIME 100
+#define MAX_SERIAL_TIME 200
 
 
 // *=> vars
@@ -17,7 +17,7 @@ uint8_t idx, idx0, idx1;                            // punteros para el buildCom
 uint16_t tmp;                                        // int temporal para algunos calculos internos
 uint16_t extra;
 byte segment;
-byte segments[2];
+byte segments[5];
 uint8_t code = 255; // on: 0, us: 5, status: 4
 uint32_t time;
 
@@ -175,30 +175,29 @@ bool sendSegment(byte segment, bool haveExtra) {
 
 
 bool receiveSegments() {
-    for (idx = 0; idx < 2; idx++) segments[idx] = 0;
+    for (idx = 0; idx < 5; idx++) segments[idx] = 0;
     idx = 0;
-    if (Serial1.available()) {
-        time = millis();
-        if (Serial1.available()) {
-            while ((millis() - time) < MAX_SERIAL_TIME) {
-                if (Serial1.available())
-                    segments[idx++] = Serial1.read();
-                if (idx >= 2) return true;
-            }
-            return true;
-        }
+    time = millis();
+
+    while (Serial1.available() || (millis() - time) < MAX_SERIAL_TIME) {
+        if (!Serial1.available()) { delay(5); continue; }
+        if (idx >= 5) return false;
+
+        segments[idx++] = Serial1.read();
     }
 
-    return false;
+    return idx > 0 ? true : false;
 }
 
 
 bool playSegment() {
 
     if (code == 4) {
-        Serial.println("\nAddress: " + String(segments[0] & 0b11110)
-            + "\nMin-delay: " + String(int(segments[1]))
-            + "\nPeriodic-on: " + (segments[0] & 0b1 ? "yes" : "no"));
+        tmp = (segments[3] << 8) | segments[4];
+
+        Serial.println("\nAddress: " + String(segments[0] & 0b1111)
+            + "\nMin-delay: " + String(uint16_t((segments[1] << 8) | segments[2]))
+            + "\nPeriodic: " + tmp ? String(int(tmp)) : "no");
         return true;
     }
 
