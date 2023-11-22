@@ -15,3 +15,6 @@
  * Serial1.write(cosas)
 */
 ```
+
+Aunque lo ideal es hacer un sistema mediante interrupciones, como no nos han dado el uso de los timers
+he optado por un sistema que compare intantes de tiempo

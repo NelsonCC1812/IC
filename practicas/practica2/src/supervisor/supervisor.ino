@@ -14,8 +14,8 @@
 String command[COMMAND_SIZE] = { "", "", "", "" };  // almacena el comando
 String str;                                        // almacena el string que leemos por consola & string de apoyo
 uint8_t idx, idx0, idx1;                            // punteros para el buildCommand
-uint8_t tmp;                                        // int temporal para algunos calculos internos
-uint8_t extra;
+uint16_t tmp;                                        // int temporal para algunos calculos internos
+uint16_t extra;
 byte segment;
 byte segments[2];
 uint8_t code = 255; // on: 0, us: 5, status: 4
