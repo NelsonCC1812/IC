@@ -7,7 +7,7 @@
 
 // *=> consts
 
-#define MAX_SERIAL_TIME 100
+#define MAX_SERIAL_TIME 200
 #define USS_QUANTITY 2
 
 // *=> vars
@@ -51,17 +51,15 @@ void setup() {
     Wire.begin();
     delay(100);
 
-    delay(100);
-
     oled_init(0);
     oledController();
 }
 
 void loop() {
 
-    // receiveSegments() && playSegment();
+    receiveSegments() && playSegment();
 
-    for (int i = 0; i < USS_QUANTITY; i++) if ((millis() - uss_time[i]) >= uss_period[i]) sensorController(i);
+    //  for (int i = 0; i < USS_QUANTITY; i++) if ((millis() - uss_time[i]) >= uss_period[i]) sensorController(i);
 }
 
 
@@ -70,9 +68,9 @@ bool receiveSegments() {
     idx = 0;
     if (Serial1.available()) {
         time = millis();
-        while (Serial1.available() || (millis() - time) < MAX_SERIAL_TIME) {
-            if (!Serial.available()) { delay(5); continue; }
-            if (idx >= 2) return false;
+        while ((millis() - time) < MAX_SERIAL_TIME) {
+            if (!Serial1.available()) { delay(5); continue; }
+            if (idx >= 3) return false;
 
             segments[idx++] = Serial1.read();
         }
@@ -86,6 +84,10 @@ bool receiveSegments() {
 
 // TODO
 bool playSegment() {
+    Serial.println("");
+    Serial.println(String(segments[0], BIN));
+    Serial.println(String(uint16_t((segments[1] << 8) | segments[2])));
+
     /*
     switch (segments[0] & 0b11) {
     case 0:
@@ -94,6 +96,8 @@ bool playSegment() {
     case 3:
     }
     */
+
+    return false;
 }
 
 // TODO

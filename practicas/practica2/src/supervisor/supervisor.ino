@@ -117,7 +117,7 @@ bool playCommand() {
 
         tmp = String(command[3]).toInt();
         if (tmp <= 0) {
-            Serial.println("ERROR: El paramentro que acompaña a la opción tiene que se un numero mayor a 0");
+            Serial.println("ERROR: El parametro que acompaña a la opción tiene que se un numero mayor a 0");
             return false;
         }
 
@@ -156,7 +156,8 @@ bool playCommand() {
 
 bool sendSegment(byte segment, bool haveExtra) {
     Serial1.write(segment);
-    haveExtra&& Serial1.write(extra);
+    haveExtra&& Serial1.write(uint8_t((extra & ~0xff) >> 8));
+    haveExtra&& Serial1.write(uint8_t((extra)));
 
     if ((code != 4 || code != 5)) {
         if (receiveSegments() == 0xFF) {
