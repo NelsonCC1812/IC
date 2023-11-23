@@ -22,4 +22,4 @@
 // *=> headers
 byte uss_readRegister(byte addr, byte the_register);
 void uss_writeCommand(byte addr, byte command);
-void uss_measure(uint8_t addr, byte mode, uint16_t delay_time, uint16_t* measure, uint16_t* autotune);
+void uss_measure(uint8_t addr, byte mode, uint16_t* measure, uint16_t* autotune);

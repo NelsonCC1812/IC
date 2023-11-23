@@ -22,10 +22,10 @@ byte uss_option;
 uint32_t oled_period = 0;
 uint32_t oled_time = 0;
 
-byte uss_addrs[] = { byte(0xE0) >> 1,(0xE2) >> 1 };
+byte uss_addrs[] = { byte(0xE0) >> 1, byte(0xE2) >> 1 };
 uint32_t uss_time[] = { 0, 0 };
-uint16_t uss_period[] = { 1000, 1000 };
-uint16_t uss_delay[] = { 100, 100 };
+uint16_t uss_period[] = { 500, 350 };
+uint16_t uss_delay[] = { 50, 80 };
 uint8_t uss_measureUnit[] = { 0, 0 };
 bool uss_oneShot[] = { false, false };
 
@@ -59,7 +59,6 @@ void setup() {
 }
 
 void loop() {
-
     receiveSegments() && playSegment();
 
     for (int i = 0; i < USS_QUANTITY; i++)
@@ -104,18 +103,20 @@ bool playSegment() {
     case 1: uss_measureUnit[uss_addr] = uss_option; Serial1.write(0xff); return true;
     case 2: uss_delay[uss_addr] = getExtraData(); Serial1.write(0xff); return true;
     case 3:
-        Serial1.write(segments[uss_addr]);
 
-        Serial1.write(uint8_t((uss_delay[uss_addr] & ~0xff) >> 8));
+        Serial1.write(uss_addrs[uss_addr]);
+
+        Serial1.write(uint8_t(uss_delay[uss_addr] >> 8));
         Serial1.write(uint8_t((uss_delay[uss_addr])));
 
-        Serial1.write(uint8_t((uss_period[uss_addr] & ~0xff) >> 8));
+        Serial1.write(uint8_t(uss_period[uss_addr] >> 8));
         Serial1.write(uint8_t((uss_period[uss_addr])));
         return true;
 
     default:
         if (segments[0] == 255) {
-            Serial1.write(uss_addrs[0] | (uss_addrs[1] << 4));
+            Serial1.write(uss_addrs[0]);
+            Serial1.write(uss_addrs[1]);
             return true;
         }
     }
@@ -129,10 +130,12 @@ void sensorController(uint8_t uss_index) {
 
     uss_measure(uss_addrs[uss_index],
         uss_measureUnit[uss_index] == 0 ? REAL_RANGING_MODE_INCHES : uss_measureUnit[uss_index] == 1 ? REAL_RANGING_MODE_CMS : REAL_RANGING_MODE_USECS,
-        uss_delay[uss_index], &(uss_measure_data[uss_index]), &(uss_autotune_data[uss_index]));
+        &(uss_measure_data[uss_index]), &(uss_autotune_data[uss_index]));
 
     uss_time[uss_index] = millis();
     oledController();
+
+    delay(uss_delay[uss_index]);
 
     if (uss_oneShot[uss_index]) {
         uss_oneShot[uss_index] = false;

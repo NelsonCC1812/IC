@@ -43,11 +43,15 @@ void setup() {
     while (!Serial1) {}
 
     Serial.println("> Start");
-
+    Serial.print("\n> ");
 }
 
 void loop() {
-    getConsoleData() && buildCommand() && playCommand();
+
+    if (getConsoleData() && buildCommand() && playCommand()) {
+        Serial.println();
+        Serial.print("\n> ");
+    };
 }
 
 // *=> utilities
@@ -155,12 +159,13 @@ bool playCommand() {
 
 
 bool sendSegment(byte segment, bool haveExtra) {
+
     Serial1.write(segment);
     haveExtra&& Serial1.write(uint8_t((extra & ~0xff) >> 8));
     haveExtra&& Serial1.write(uint8_t((extra)));
 
-    if ((code != 4 || code != 5)) {
-        if (receiveSegments() == 0xFF) {
+    if (!(code == 4 || code == 5)) {
+        if (receiveSegments() == segments[0]) {
             Serial.println("Comando ejecutado correctamente");
             return true;
         }
@@ -177,8 +182,8 @@ bool sendSegment(byte segment, bool haveExtra) {
 bool receiveSegments() {
     for (idx = 0; idx < 5; idx++) segments[idx] = 0;
     idx = 0;
-    time = millis();
 
+    time = millis();
     while (Serial1.available() || (millis() - time) < MAX_SERIAL_TIME) {
         if (!Serial1.available()) { delay(5); continue; }
         if (idx >= 5) return false;
@@ -193,17 +198,19 @@ bool receiveSegments() {
 bool playSegment() {
 
     if (code == 4) {
-        tmp = (segments[3] << 8) | segments[4];
 
-        Serial.println("\nAddress: " + String(segments[0] & 0b1111)
-            + "\nMin-delay: " + String(uint16_t((segments[1] << 8) | segments[2]))
-            + "\nPeriodic: " + tmp ? String(int(tmp)) : "no");
+        tmp = uint16_t((segments[3] << 8) | segments[4]);
+
+        Serial.println("Address: " + String(segments[0]));
+        Serial.println("Min-delay: " + String(uint16_t((segments[1] << 8) | segments[2])));
+        Serial.println("Periodic: " + (tmp ? String(int(tmp)) : "no"));
+
         return true;
     }
 
     if (code == 5) {
-        Serial.println("\nSensor 0: " + String(segments[0] & 0b1111)
-            + "\nSensor 1: " + String(segments[0] & ~0b1111));
+        Serial.println("\nSensor 0: " + String(segments[0])
+            + "\nSensor 1: " + String(segments[1]));
         return true;
     }
 

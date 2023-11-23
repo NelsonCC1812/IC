@@ -7,7 +7,7 @@
 // *=> headers
 void uss_writeCommand(byte addr, byte command);
 byte uss_readRegister(byte addr, byte the_register);
-void uss_measure(uint8_t addr, uint16_t delay_time, uint16_t* measure, uint16_t* autotune);
+void uss_measure(uint8_t addr, uint16_t* measure, uint16_t* autotune);
 
 // *=> implementation
 
@@ -28,10 +28,8 @@ byte uss_readRegister(byte addr, byte the_register) {
     return Wire.read();
 }
 
-void uss_measure(uint8_t addr, byte mode, uint16_t delay_time, uint16_t* measure, uint16_t* autotune) {
+void uss_measure(uint8_t addr, byte mode, uint16_t* measure, uint16_t* autotune) {
     uss_writeCommand(addr, mode);
-    delay(delay_time);
-
 
     *measure = uint16_t((uss_readRegister(addr, RANGE_HIGH_BYTE) << 8) | uss_readRegister(addr, RANGE_LOW_BYTE));
     *autotune = uint16_t((uss_readRegister(addr, AUTOTUNE_MINIMUM_HIGH_BYTE) << 8) | uss_readRegister(addr, AUTOTUNE_MINIMUM_LOW_BYTE));
