@@ -7,7 +7,7 @@
 
 // *=> consts
 
-#define MAX_SERIAL_TIME 200
+#define MAX_SERIAL_TIME 500
 #define USS_QUANTITY 2
 
 // *=> vars
@@ -59,6 +59,7 @@ void setup() {
 }
 
 void loop() {
+
     receiveSegments() && playSegment();
 
     for (int i = 0; i < USS_QUANTITY; i++)
@@ -92,16 +93,22 @@ bool playSegment() {
     uss_addr = (segments[0] >> 4);
     uss_option = (segments[0] >> 2 & 0b11);
 
+    if (segments[0] == 0xff) {
+        Serial1.write(uss_addrs[0]);
+        Serial1.write(uss_addrs[1]);
+        return true;
+    }
+
     switch (segments[0] & 0b11) {
     case 0:
         switch (uss_option) {
-        case 0: uss_period[uss_addr] = 0; uss_oneShot[uss_addr] = false; Serial1.write(0xff); return true;
-        case 1: uss_oneShot[uss_addr] = true; Serial1.write(0xff); return true;
-        case 2: uss_oneShot[uss_addr] = false; uss_period[uss_addr] = getExtraData(); Serial1.write(0xff); return true;
+        case 0:  uss_period[uss_addr] = 0; uss_oneShot[uss_addr] = false; return true;
+        case 1:  uss_oneShot[uss_addr] = true;  return true;
+        case 2:  uss_oneShot[uss_addr] = false;  uss_period[uss_addr] = getExtraData(); return true;
         }
 
-    case 1: uss_measureUnit[uss_addr] = uss_option; Serial1.write(0xff); return true;
-    case 2: uss_delay[uss_addr] = getExtraData(); Serial1.write(0xff); return true;
+    case 1: uss_measureUnit[uss_addr] = uss_option; Serial1.write(0xff);  return true;
+    case 2: uss_delay[uss_addr] = getExtraData(); return true;
     case 3:
 
         Serial1.write(uss_addrs[uss_addr]);
@@ -112,13 +119,6 @@ bool playSegment() {
         Serial1.write(uint8_t(uss_period[uss_addr] >> 8));
         Serial1.write(uint8_t((uss_period[uss_addr])));
         return true;
-
-    default:
-        if (segments[0] == 255) {
-            Serial1.write(uss_addrs[0]);
-            Serial1.write(uss_addrs[1]);
-            return true;
-        }
     }
 
 
@@ -152,8 +152,8 @@ void oledController() {
 
     oled.clear();
 
-    oled.println("Sensor 0: " + String(uss_measure_data[0]));
-    oled.println(String(uss_measureUnit[0] == 0 ? "inc" : uss_measureUnit[0] == 1 ? " cm" : " ms") + " min= " + String(uss_autotune_data[0]));
-    oled.println("Sensor 1: " + String(uss_measure_data[1]));
-    oled.println(String(uss_measureUnit[0] == 0 ? "inc" : uss_measureUnit[0] == 1 ? " cm" : " ms") + " min= " + String(uss_autotune_data[1]));
+    oled.print("Sensor 0: " + String(uss_measure_data[0])
+        + String(uss_measureUnit[0] == 0 ? " inc" : uss_measureUnit[0] == 1 ? " cm" : " ms") + "\nmin= " + String(uss_autotune_data[0])
+        + "\nSensor 1: " + String(uss_measure_data[1])
+        + String(uss_measureUnit[1] == 0 ? " inc" : uss_measureUnit[1] == 1 ? " cm" : " ms") + "\nmin= " + String(uss_autotune_data[1]));
 }

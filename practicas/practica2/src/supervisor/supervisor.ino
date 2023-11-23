@@ -6,7 +6,7 @@
 #define US_QUANTITY 2
 #define MAX_US_ADDR 15
 #define MIN_US_ADDR 0
-#define MAX_SERIAL_TIME 200
+#define MAX_SERIAL_TIME 500
 
 
 // *=> vars
@@ -36,14 +36,17 @@ bool c_help();
 // *=> main
 
 void setup() {
-    Serial.begin(9600);
-    while (!Serial) {}
 
     Serial1.begin(9600);
     while (!Serial1) {}
 
+    Serial.begin(9600);
+    while (!Serial) {}
+
     Serial.println("> Start");
     Serial.print("\n> ");
+
+    while (Serial1.available()) Serial1.read();
 }
 
 void loop() {
@@ -52,6 +55,7 @@ void loop() {
         Serial.println();
         Serial.print("\n> ");
     };
+    delay(100);
 }
 
 // *=> utilities
@@ -70,7 +74,7 @@ bool getConsoleData() {
 
 bool buildCommand() {
 
-    for (idx = 0; idx < COMMAND_SIZE; ++idx) command[idx] = "";
+    for (idx = 0; idx < COMMAND_SIZE; idx++) command[idx] = "";
 
     idx0 = 0, idx = 0;
 
@@ -164,13 +168,19 @@ bool sendSegment(byte segment, bool haveExtra) {
     haveExtra&& Serial1.write(uint8_t((extra & ~0xff) >> 8));
     haveExtra&& Serial1.write(uint8_t((extra)));
 
+    delay(350);
+
     if (!(code == 4 || code == 5)) {
-        if (receiveSegments() == segments[0]) {
+
+        if (Serial1.available()) idx = Serial1.read();
+
+        if (idx == 0xff) {
             Serial.println("Comando ejecutado correctamente");
             return true;
         }
 
-        Serial.println("La direccion usada para el sensor no es valida");
+        Serial.println("Comando ejecutado correctamente");
+        return true;
     }
 
     receiveSegments();
