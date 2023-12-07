@@ -54,6 +54,13 @@ typedef struct {
     bool endReceived;
 } LoraMessage_t;
 
+bool _init(uint8_t localAddr, uint8_t destAddr, void (*onReceive_func) (LoraMessage_t msg));
+void _applyConfig(LoraConfig_t config, byte configMask);
+void _sendMessage(uint8_t opCode, uint8_t* payload, uint8_t payloadLength);
+LoraConfig_t _extractConfig(byte configMask);
+void _onReceive(LoraMessage_t message);
+void lora_receive();
+
 typedef struct {
     // fields
     uint8_t err = 0; // error code
@@ -62,20 +69,13 @@ typedef struct {
     LoraMessage_t msg;
 
     // methods
-    bool (*init)(uint8_t localAddr, uint8_t destAddr, void  (*onReceive_func) (LoraMessage_t)) = init;
-    LoraConfig_t(*extractConfig)(byte configMask) = extractConfig;
-    void (*applyConfig) (LoraConfig_t config) = applyConfig;
-    void (*sendMessage) (uint8_t opCode, uint8_t* payload, uint8_t payloadLength) = sendMessage;
-    void (*receive) () = receive;
+    bool (*init)(uint8_t localAddr, uint8_t destAddr, void  (*onReceive_func) (LoraMessage_t)) = _init;
+    LoraConfig_t(*extractConfig)(byte configMask) = _extractConfig;
+    void (*applyConfig) (LoraConfig_t config, byte configMask) = _applyConfig;
+    void (*sendMessage) (uint8_t opCode, uint8_t* payload, uint8_t payloadLength) = _sendMessage;
+    void (*receive) () = lora_receive;
 
 } lora_t;
-
-bool init(uint8_t localAddr, uint8_t destAddr, void (*onReceive_func) (LoraMessage_t msg));
-void applyConfig(LoraConfig_t config);
-void sendMessage(uint8_t opCode, uint8_t* payload, uint8_t payloadLength, uint16_t msgCount);
-LoraConfig_t extractConfig(byte configMask);
-void onReceive(LoraMessage_t message);
-void receive();
 
 
 

@@ -5,7 +5,7 @@
 #define USE_SERIAL 1
 
 #define ADDR_LOCAL  0xE0
-#define ADDR_DEST   0xE2
+#define ADDR_DEST   0xE0
 
 // *=> var
 uint8_t py[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
@@ -18,13 +18,17 @@ void setup() {
     if (USE_SERIAL) {
         Serial.begin(9600);
         while (!Serial) {}
+        Serial.println("Serial started");
     }
 
+
     lora.init(ADDR_LOCAL, ADDR_DEST, onReceive);
+    Serial.println("LoRa init");
 }
 
 void loop() {
     lora.sendMessage(0, py, 3);
+    lora.receive();
 }
 
 // *=> function implementations

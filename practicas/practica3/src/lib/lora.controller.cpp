@@ -34,20 +34,22 @@ lora_t lora;
 
 
 // *=> lora headers
-bool init(uint8_t localAddr, uint8_t destAddr, void  (*onReceive_func) (LoraMessage_t msg));
-void applyConfig(LoraConfig_t config);
-void sendMessage(uint8_t opCode, uint8_t* payload, uint8_t payloadLength, uint16_t msgCount);
-LoraConfig_t extractConfig(byte configMask);
+bool _init(uint8_t localAddr, uint8_t destAddr, void  (*onReceive_func) (LoraMessage_t msg));
+void _applyConfig(LoraConfig_t config, byte configMask);
+void _sendMessage(uint8_t opCode, uint8_t* payload, uint8_t payloadLength, uint16_t msgCount);
+LoraConfig_t _extractConfig(byte configMask);
 void onReceive(LoraMessage_t message);
 void lora_receive();
 
 
 void TxFinished();
-void onReceive(int packetSize);
+void _onReceive(int packetSize);
 
 // *=> implementations
 
-bool init(uint8_t localAddr, uint8_t destAddr, void (*onReceive_func) (LoraMessage_t msg)) {
+bool _init(uint8_t localAddr, uint8_t destAddr, void (*onReceive_func) (LoraMessage_t msg)) {
+
+    Serial.println("init");
 
     lora.localAddr = localAddr;
     lora.destAddr = destAddr;
@@ -58,14 +60,14 @@ bool init(uint8_t localAddr, uint8_t destAddr, void (*onReceive_func) (LoraMessa
 
     LoRa.setSyncWord(syncWord);
     LoRa.setPreambleLength(8);
-    LoRa.onReceive(onReceive);
+    LoRa.onReceive(_onReceive);
     LoRa.onTxDone(TxFinished);
     LoRa.receive();
 
     return true;
 }
 
-LoraConfig_t extractConfig(byte configMask) {
+LoraConfig_t _extractConfig(byte configMask) {
     LoraConfig_t config;
     if (!(configMask & CONF_MODE_MASK)) return config;
 
@@ -88,7 +90,7 @@ LoraConfig_t extractConfig(byte configMask) {
     return config;
 }
 
-void applyConfig(LoraConfig_t config, byte configMask) {
+void _applyConfig(LoraConfig_t config, byte configMask) {
     if (!(configMask & CONF_MODE_MASK)) return;
 
     if (configMask & BW_MASK)   LoRa.setSignalBandwidth(long(bandwidth_kHz[config.bandwidth_index]));
@@ -97,7 +99,7 @@ void applyConfig(LoraConfig_t config, byte configMask) {
     if (configMask & PWR_MASK)  LoRa.setTxPower(config.txPower, PA_OUTPUT_PA_BOOST_PIN);
 }
 
-void sendMessage(uint8_t opCode, uint8_t* payload, uint8_t payloadLength) {
+void _sendMessage(uint8_t opCode, uint8_t* payload, uint8_t payloadLength) {
 
     transmitting = true;
     txDoneFlag = false;
@@ -123,7 +125,7 @@ void sendMessage(uint8_t opCode, uint8_t* payload, uint8_t payloadLength) {
 }
 
 
-void onReceive(int packetSize) {
+void _onReceive(int packetSize) {
     if (transmitting && !txDoneFlag) txDoneFlag = true;
     if (packetSize == 0) return;
 
