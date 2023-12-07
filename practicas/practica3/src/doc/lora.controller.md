@@ -20,12 +20,10 @@
 
 #### Estructura del paquete
 
-| byte  | Field |
-| :---: | :---: |#### Códigos de operación
+<div style="display: flex; justify-content: center;">
 
-|     7     |                    6                    |   5   |    4    |      3      |   2   |     1     |      0      |
-| :-------: | :-------------------------------------: | :---: | :-----: | :---------: | :---: | :-------: | :---------: |
-|     x     |                    x                    |   x   | txPower | Coding Rate |  SPF  | bandwidth | Config Mode |
+|   byte    |                 Content                 |
+| :-------: | :-------------------------------------: |
 |     1     |           destination address           |
 |     2     |             sender address              |
 |     3     |             Msg Counter HB              |
@@ -35,6 +33,7 @@
 | 7 - (7+n) |                 Payload                 |
 |   (8+n)   |               End Segment               |
 
+</div>
 
 
 ### Lora API

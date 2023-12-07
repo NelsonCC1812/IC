@@ -2,7 +2,7 @@
 #define FREC_BAND 868E6
 #define BROADCAST_ADDR 0xff
 #define PAYLOAD_SIZE 10
-#define END_SEGMENT  0xFF;
+#define END_SEGMENT  0xFF
 
 #define SRN_MIN_GAP  1
 #define SRN_MAX_RATIO .1
@@ -28,7 +28,7 @@
 #define CONST_PROP_SNR 148
 
 // *=> consts
-const uint8_t syncWord = 0x22;
+const uint8_t syncWord = 0x22
 
 
 // *=> structs
