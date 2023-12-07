@@ -17,7 +17,7 @@
 // *=> consts
 const double bandwidth_kHz[10] = { 7.8E3, 10.4E3, 15.6E3, 20.8E3, 31.25E3,
                             41.7E3, 62.5E3, 125E3, 250E3, 500E3 };
-void (*onReceive_call)(LoraMessage_t);
+void (*onReceive_call)(LoraMessage_t) = NULL;
 
 // *=> vars
 
@@ -30,9 +30,11 @@ uint8_t lora_tmp;
 
 
 // *=> lora headers
-void init(uint8_t _localAddr, uint8_t _destAddr);
+void init(uint8_t localAddr, uint8_t destAddr, uint8_t onReceive_func);
 void applyConfig(LoraConfig_t config);
-void sendMessage();
+void sendMessage(uint8_t opCode, uint8_t* payload, uint8_t payloadLength, uint16_t msgCount);
+LoRaConfig_t extractConfig(byte configMask);
+void onReceive(LoraMessage_t message);
 
 // *=> structs
 
@@ -64,9 +66,10 @@ struct {
     LoraMessage_t msg;
 
     // methods
-    void (*init)(uint8_t _localAddr, uint8_t _destAddr) = init;
+    void (*init)(uint8_t localAddr, uint8_t destAddr, uint8_t onReceive_func) = init;
     LoRaConfig_t(*extractConfig)(byte configMask) = extractConfig;
     void (*applyConfig) (LoRaConfig_t config) = applyConfig;
+    void (*sendMessage) (uint8_t opCode, uint8_t* payload, uint8_t payloadLength, uint16_t msgCount) = sendMessage;
     void (*receive) () = LoRa.receive;
 
 } lora;
@@ -175,7 +178,7 @@ void onReceive(int packetSize) {
 
     if (lora.msg.snr >= lora.msg.rssi * SNR_RSSI_RATIO) lora.err = 3;
 
-    onReceive_call(lora.msg);
+    if (onReceive_call) onReceive_call(lora.msg);
 }
 
 void TxFinished() { txDoneFlag = true; }

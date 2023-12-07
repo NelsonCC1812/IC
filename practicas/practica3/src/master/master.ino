@@ -12,6 +12,8 @@ void setup() {
         while (!Serial) {}
     }
 
+    lora.init();
+
 
 }
 
