@@ -3,7 +3,7 @@
 #include <SPI.h>             
 #include <LoRa.h>
 
-#include <lora.controller.h>
+#include "lora.controller.h"
 
 
 // declare
@@ -28,56 +28,26 @@ uint8_t receivedBytes;
 
 uint8_t lora_tmp;
 
+uint16_t msgCount = 0;
+
+lora_t lora;
+
 
 // *=> lora headers
-void init(uint8_t localAddr, uint8_t destAddr, uint8_t onReceive_func);
+bool init(uint8_t localAddr, uint8_t destAddr, void  (*onReceive_func) (LoraMessage_t msg));
 void applyConfig(LoraConfig_t config);
 void sendMessage(uint8_t opCode, uint8_t* payload, uint8_t payloadLength, uint16_t msgCount);
-LoRaConfig_t extractConfig(byte configMask);
+LoraConfig_t extractConfig(byte configMask);
 void onReceive(LoraMessage_t message);
+void lora_receive();
 
-// *=> structs
 
-typedef struct {
-    uint8_t bandwidth_index;
-    uint8_t spreadingFactor;
-    uint8_t codingRate;
-    uint8_t txPower;
-} LoRaConfig_t;
-
-typedef struct {
-    uint8_t rcpt, sender;
-    uint16_t id;
-    uint8_t opCode;
-
-    uint8_t payloadLength;
-    uint8_t payload[PAYLOAD_SIZE];
-
-    uint8_t rssi, snr;
-
-    bool endRecieved;
-} LoraMessage_t;
-
-struct {
-    // fields
-    uint8_t err = 0; // error code
-    uint8_t localAddr, destAddr;
-    uint16_t msgCount = 0;
-    LoraMessage_t msg;
-
-    // methods
-    void (*init)(uint8_t localAddr, uint8_t destAddr, uint8_t onReceive_func) = init;
-    LoRaConfig_t(*extractConfig)(byte configMask) = extractConfig;
-    void (*applyConfig) (LoRaConfig_t config) = applyConfig;
-    void (*sendMessage) (uint8_t opCode, uint8_t* payload, uint8_t payloadLength, uint16_t msgCount) = sendMessage;
-    void (*receive) () = LoRa.receive;
-
-} lora;
-
+void TxFinished();
+void onReceive(int packetSize);
 
 // *=> implementations
 
-bool init(uint8_t localAddr, uint8_t destAddr, uint8_t onReceive_func) {
+bool init(uint8_t localAddr, uint8_t destAddr, void (*onReceive_func) (LoraMessage_t msg)) {
 
     lora.localAddr = localAddr;
     lora.destAddr = destAddr;
@@ -90,13 +60,14 @@ bool init(uint8_t localAddr, uint8_t destAddr, uint8_t onReceive_func) {
     LoRa.setPreambleLength(8);
     LoRa.onReceive(onReceive);
     LoRa.onTxDone(TxFinished);
-    Lora.receive();
+    LoRa.receive();
 
     return true;
 }
 
-LoRaConfig_t extractConfig(byte configMask) {
-    if (!(configMask & CONF_MODE_MASK)) return;
+LoraConfig_t extractConfig(byte configMask) {
+    LoraConfig_t config;
+    if (!(configMask & CONF_MODE_MASK)) return config;
 
     lora_tmp = 0;
 
@@ -105,9 +76,8 @@ LoRaConfig_t extractConfig(byte configMask) {
     if (configMask & CR_MASK)   lora_tmp++;
     if (configMask & PWR_MASK)  lora_tmp++;
 
-    if (lora.msg.payloadLength > lora_tmp || lora.msg.payloadLength == 0) return NULL;
+    if (lora.msg.payloadLength > lora_tmp || lora.msg.payloadLength == 0) return config;
 
-    LoRaConfig_t config;
     lora_tmp = 0;
 
     if (configMask & BW_MASK)   config.bandwidth_index = lora.msg.payload[lora_tmp++];
@@ -118,7 +88,7 @@ LoRaConfig_t extractConfig(byte configMask) {
     return config;
 }
 
-void applyConfig(LoRaConfig_t config, byte configMask) {
+void applyConfig(LoraConfig_t config, byte configMask) {
     if (!(configMask & CONF_MODE_MASK)) return;
 
     if (configMask & BW_MASK)   LoRa.setSignalBandwidth(long(bandwidth_kHz[config.bandwidth_index]));
@@ -127,7 +97,7 @@ void applyConfig(LoRaConfig_t config, byte configMask) {
     if (configMask & PWR_MASK)  LoRa.setTxPower(config.txPower, PA_OUTPUT_PA_BOOST_PIN);
 }
 
-void sendMessage(uint8_t opCode, uint8_t* payload, uint8_t payloadLength, uint16_t msgCount) {
+void sendMessage(uint8_t opCode, uint8_t* payload, uint8_t payloadLength) {
 
     transmitting = true;
     txDoneFlag = false;
@@ -140,7 +110,9 @@ void sendMessage(uint8_t opCode, uint8_t* payload, uint8_t payloadLength, uint16
     LoRa.write((uint8_t)(msgCount >> 8));
     LoRa.write((uint8_t)(msgCount & 0xFF));
 
-    Lora.write(opCode);
+    msgCount++;
+
+    LoRa.write(opCode);
 
     LoRa.write(payloadLength);
     LoRa.write(payload, (size_t)payloadLength);
@@ -159,18 +131,18 @@ void onReceive(int packetSize) {
     lora.msg.sender = LoRa.read();
 
     lora.msg.id = ((uint16_t)(LoRa.read() << 8) | (uint16_t)LoRa.read());
-    lora.msg.opCode = Lora.read();
+    lora.msg.opCode = LoRa.read();
 
     lora.msg.payloadLength = LoRa.read();
 
     if (lora.msg.payloadLength > PAYLOAD_SIZE) { lora.err = ERR_PAYLOAD_EXCEDES_BUFFER; return; }
 
     receivedBytes = 0;
-    while (LoRa.available() && (receivedBytes < uint8_t(sizeof(lora.msg.payload) - 1))) buff[receivedBytes++] = LoRa.read();
+    while (LoRa.available() && (receivedBytes < uint8_t(sizeof(lora.msg.payload) - 1))) lora.msg.payload[receivedBytes++] = LoRa.read();
 
     if (lora.msg.payloadLength != receivedBytes) { lora.err = ERR_PAYLOAD_NOT_COINCIDES; return; }
     if ((lora.msg.rcpt & lora.localAddr) != lora.localAddr) { lora.err = ERR_TARGET_ERROR; return; }
-    if (LoRa.available() && (LoRa.read() != END_SEGMENT)) { lora.msg.endRecieved = false; lora.err = ERR_END_NOT_RECEIVED; return; }
+    if (LoRa.available() && (LoRa.read() != END_SEGMENT)) { lora.msg.endReceived = false; lora.err = ERR_END_NOT_RECEIVED; return; }
 
     lora.err = NO_ERROR;
     lora.msg.rssi = uint8_t(CONST_PROP_RSSI * LoRa.packetRssi());
@@ -182,3 +154,7 @@ void onReceive(int packetSize) {
 }
 
 void TxFinished() { txDoneFlag = true; }
+
+void lora_receive() {
+    LoRa.receive();
+}

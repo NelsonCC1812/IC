@@ -1,3 +1,6 @@
+// *=> imports
+#include <LoRa.h>
+
 // *=> defines
 #define FREC_BAND 868E6
 #define BROADCAST_ADDR 0xff
@@ -28,7 +31,52 @@
 #define CONST_PROP_SNR 148
 
 // *=> consts
-const uint8_t syncWord = 0x22
+const uint8_t syncWord = 0x22;
+
+typedef struct {
+    uint8_t bandwidth_index;
+    uint8_t spreadingFactor;
+    uint8_t codingRate;
+    uint8_t txPower;
+} LoraConfig_t;
+
+
+typedef struct {
+    uint8_t rcpt, sender;
+    uint16_t id;
+    uint8_t opCode;
+
+    uint8_t payloadLength;
+    uint8_t payload[PAYLOAD_SIZE];
+
+    uint8_t rssi, snr;
+
+    bool endReceived;
+} LoraMessage_t;
+
+typedef struct {
+    // fields
+    uint8_t err = 0; // error code
+    uint8_t localAddr, destAddr;
+    uint16_t msgCount = 0;
+    LoraMessage_t msg;
+
+    // methods
+    bool (*init)(uint8_t localAddr, uint8_t destAddr, void  (*onReceive_func) (LoraMessage_t)) = init;
+    LoraConfig_t(*extractConfig)(byte configMask) = extractConfig;
+    void (*applyConfig) (LoraConfig_t config) = applyConfig;
+    void (*sendMessage) (uint8_t opCode, uint8_t* payload, uint8_t payloadLength) = sendMessage;
+    void (*receive) () = receive;
+
+} lora_t;
+
+bool init(uint8_t localAddr, uint8_t destAddr, void (*onReceive_func) (LoraMessage_t msg));
+void applyConfig(LoraConfig_t config);
+void sendMessage(uint8_t opCode, uint8_t* payload, uint8_t payloadLength, uint16_t msgCount);
+LoraConfig_t extractConfig(byte configMask);
+void onReceive(LoraMessage_t message);
+void receive();
+
 
 
 // *=> structs
