@@ -15,7 +15,6 @@
 
 
 // *=> consts
-
 const double bandwidth_kHz[10] = { 7.8E3, 10.4E3, 15.6E3, 20.8E3, 31.25E3,
                             41.7E3, 62.5E3, 125E3, 250E3, 500E3 };
 void (*onReceive_call)(LoraMessage_t);
@@ -170,9 +169,11 @@ void onReceive(int packetSize) {
     if ((lora.msg.rcpt & lora.localAddr) != lora.localAddr) { lora.err = 2; return; }
     if (LoRa.available() && (LoRa.read() != END_SEGMENT)) { lora.msg.endRecieved = false; lora.err = }
 
-    lora.msg.err = 0;
+    lora.err = 0;
     lora.msg.rssi = uint8_t(-2 * LoRa.packetRssi());
     lora.msg.snr = uint8_t(148 + LoRa.packetSnr());
+
+    if (lora.msg.snr >= lora.msg.rssi * SNR_RSSI_RATIO) lora.err = 3;
 
     onReceive_call(lora.msg);
 }
