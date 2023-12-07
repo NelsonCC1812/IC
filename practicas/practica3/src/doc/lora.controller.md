@@ -92,12 +92,14 @@ La API hace uso de ciertas variables de control que están built-in la instancia
 
 #### Códigos de error
 
-| lora.err | Meaning                           |
-| -------- | --------------------------------- |
-| 0        | no error                          |
-| 1        | no end of message received        |
-| 3        | Noise excedes signal (percentage) |
-| 99       | payload excedes buffer            |
+| lora.err | Meaning                                         |
+| -------- | ----------------------------------------------- |
+| 0        | no error                                        |
+| 1        | no end of message received                      |
+| 2        | payloadLength not coincides with actual payload |
+| 3        | Noise excedes signal (percentage)               |
+| 4        | Target message incorrect                        |
+| 99       | payload excedes buffer                          |
 
 
 ### ¿Que contiene el mensaje?

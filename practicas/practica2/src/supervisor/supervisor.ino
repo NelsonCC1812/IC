@@ -1,3 +1,15 @@
+/** //
+ *
+ * invertido codigo operacion: 2 | sensor 0-16 | opcion: 1-2
+ *
+ *  00: 1 |         | 00: off, 01: one-shot, 11: period_ms (si es 1 se le añade un 0 delante o al final)
+ *  01: 2 | unit    | 00: inc, 01: cm, 11: ms
+ *  10: 3 | delay   | num
+ *  11: 4 | status  | 0: 0, 1: 1
+ *  us: 0xFF
+*/
+
+
 // *=> imports
 #include <Wire.h>
 
@@ -239,15 +251,3 @@ bool c_help() {
     Serial.println();
     return true;
 }
-
-
-
-/** // TODO
- *
- * invertido codigo operacion: 2 | sensor 0-16 | opcion: 1-2
- *
- *  00: 1 |         | 00: off, 01: one-shot, 11: period_ms (si es 1 se le añade un 0 delante o al final)
- *  01: 2 | unit    | 00: inc, 01: cm, 11: ms
- *  10: 3 | delay   | num
- *  11: 4 | status  | 0: 0, 1: 1
-*/

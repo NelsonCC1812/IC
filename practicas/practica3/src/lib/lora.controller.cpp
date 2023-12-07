@@ -163,20 +163,20 @@ void onReceive(int packetSize) {
 
     lora.msg.payloadLength = LoRa.read();
 
-    if (lora.msg.payloadLength > PAYLOAD_SIZE) { lora.err = 99; return; }
+    if (lora.msg.payloadLength > PAYLOAD_SIZE) { lora.err = ERR_PAYLOAD_EXCEDES_BUFFER; return; }
 
     receivedBytes = 0;
     while (LoRa.available() && (receivedBytes < uint8_t(sizeof(lora.msg.payload) - 1))) buff[receivedBytes++] = LoRa.read();
 
-    if (lora.msg.payloadLength != receivedBytes) { lora.err = 1; return; }
-    if ((lora.msg.rcpt & lora.localAddr) != lora.localAddr) { lora.err = 2; return; }
-    if (LoRa.available() && (LoRa.read() != END_SEGMENT)) { lora.msg.endRecieved = false; lora.err = }
+    if (lora.msg.payloadLength != receivedBytes) { lora.err = ERR_PAYLOAD_NOT_COINCIDES; return; }
+    if ((lora.msg.rcpt & lora.localAddr) != lora.localAddr) { lora.err = ERR_TARGET_ERROR; return; }
+    if (LoRa.available() && (LoRa.read() != END_SEGMENT)) { lora.msg.endRecieved = false; lora.err = ERR_END_NOT_RECEIVED; return; }
 
-    lora.err = 0;
-    lora.msg.rssi = uint8_t(-2 * LoRa.packetRssi());
-    lora.msg.snr = uint8_t(148 + LoRa.packetSnr());
+    lora.err = NO_ERROR;
+    lora.msg.rssi = uint8_t(CONST_PROP_RSSI * LoRa.packetRssi());
+    lora.msg.snr = uint8_t(CONST_PROP_SNR + LoRa.packetSnr());
 
-    if (lora.msg.snr >= lora.msg.rssi * SNR_RSSI_RATIO) lora.err = 3;
+    if (lora.msg.snr >= lora.msg.rssi * SNR_RSSI_RATIO) lora.err = ERR_NOISE_EXCEDES_SIGNAL;
 
     if (onReceive_call) onReceive_call(lora.msg);
 }

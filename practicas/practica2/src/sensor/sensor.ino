@@ -149,9 +149,8 @@ uint16_t getExtraData() {
 
 
 void oledController() {
-
-    oled.clear();
-
+    oled.setRow(0);
+    oled.setCol(0);
     oled.print("Sensor 0: " + String(uss_measure_data[0])
         + String(uss_measureUnit[0] == 0 ? " inc" : uss_measureUnit[0] == 1 ? " cm" : " ms") + "\nmin= " + String(uss_autotune_data[0])
         + "\nSensor 1: " + String(uss_measure_data[1])
