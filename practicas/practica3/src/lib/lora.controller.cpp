@@ -17,7 +17,7 @@
 // *=> consts
 const double bandwidth_kHz[10] = { 7.8E3, 10.4E3, 15.6E3, 20.8E3, 31.25E3,
                             41.7E3, 62.5E3, 125E3, 250E3, 500E3 };
-void (*onReceive_call)(LoraMessage_t) = NULL;
+void (*onReceive_call)(LoraMessage_t);
 
 // *=> vars
 
@@ -100,7 +100,7 @@ void _applyConfig(LoraConfig_t config, byte configMask) {
 }
 
 void _sendMessage(uint8_t opCode, uint8_t* payload, uint8_t payloadLength) {
-
+    Serial.println("send");
     transmitting = true;
     txDoneFlag = false;
 
@@ -125,6 +125,7 @@ void _sendMessage(uint8_t opCode, uint8_t* payload, uint8_t payloadLength) {
 }
 
 
+// FIXME: on receive infinto
 void _onReceive(int packetSize) {
     if (transmitting && !txDoneFlag) txDoneFlag = true;
     if (packetSize == 0) return;
@@ -140,7 +141,7 @@ void _onReceive(int packetSize) {
     if (lora.msg.payloadLength > PAYLOAD_SIZE) { lora.err = ERR_PAYLOAD_EXCEDES_BUFFER; return; }
 
     receivedBytes = 0;
-    while (LoRa.available() && (receivedBytes < uint8_t(sizeof(lora.msg.payload) - 1))) lora.msg.payload[receivedBytes++] = LoRa.read();
+    while (LoRa.available() && (receivedBytes < lora.msg.payloadLength)) lora.msg.payload[receivedBytes++] = LoRa.read();
 
     if (lora.msg.payloadLength != receivedBytes) { lora.err = ERR_PAYLOAD_NOT_COINCIDES; return; }
     if ((lora.msg.rcpt & lora.localAddr) != lora.localAddr) { lora.err = ERR_TARGET_ERROR; return; }
