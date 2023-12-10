@@ -7,6 +7,7 @@
       - [Estructura del paquete](#estructura-del-paquete)
     - [Lora API](#lora-api)
       - [Métodos](#métodos)
+      - [Parámetros de configuración (`LoRaConfig_t`)](#parámetros-de-configuración-loraconfig_t)
       - [Códigos de operación](#códigos-de-operación)
     - [Variables de control](#variables-de-control)
       - [Códigos de error](#códigos-de-error)
@@ -20,7 +21,6 @@
 
 #### Estructura del paquete
 
-<div style="display: flex; justify-content: center;">
 
 |   byte    |                 Content                 |
 | :-------: | :-------------------------------------: |
@@ -33,13 +33,12 @@
 | 7 - (7+n) |                 Payload                 |
 |   (8+n)   |               End Segment               |
 
-</div>
 
 
 ### Lora API
 #### Métodos
 La API se usa llamando a métodos de la instancia `lora`:
-
+<!-- TODO -->
 ```cpp
 typedef struct {
     uint8_t bandwidth_index;
@@ -72,16 +71,37 @@ struct {
     void (*init)(uint8_t _localAddr, uint8_t _destAddr) = init;
     LoRaConfig_t(*extractConfig)(byte configMask) = extractConfig;
     void (*applyConfig) (LoRaConfig_t config) = applyConfig;
-    void (*receive) () = LoRa.receive;
+    bool (*receive) () = LoRa.receive;
 
 } lora;
 ```
 
+#### Parámetros de configuración (`LoRaConfig_t`)
+
+* `BandWith` [0-9]: Existe un array que contiene las variables reales de la configuración.
+* `spreadingFactor` [6-12]: El 6 es un valor especial.
+* `condingRate` [5-8]
+* `txPower` [2-20]
+
+
 #### Códigos de operación
 
-|   7   |   6   |   5   |    4    |      3      |   2   |     1     |      0      |
-| :---: | :---: | :---: | :-----: | :---------: | :---: | :-------: | :---------: |
-|   x   |   x   |   x   | txPower | Coding Rate |  SPF  | bandwidth | Config Mode |
+> Un 1 en el bit 7 significa que nos encontramos en el modo de configuración:
+
+
+|      7      |   6   |   5   |   4   |    3    |      2      |   1   |     0     |
+| :---------: | :---: | :---: | :---: | :-----: | :---------: | :---: | :-------: |
+| Config Mode |   x   |   x   |   x   | txPower | Coding Rate |  SPF  | bandwidth |
+
+Fuera del modo de configuración, tenemos 128 valores posibles (0-127) para pasar:
+
+| Operation Code |     Meaning     |
+| :------------: | :-------------: |
+|       0        | Control message |
+|       1        |   Acknowledge   |
+|       2        | No acknowledge  |
+|       3        |  Data message   |
+
 
 ### Variables de control
 

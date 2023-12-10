@@ -22,7 +22,7 @@ void setup() {
     }
 
 
-    lora.init(ADDR_LOCAL, ADDR_DEST, onReceive);
+    lora.init(ADDR_LOCAL, onReceive);
     Serial.println("LoRa init");
 
     LoraConfig_t config = { 9,7, 5, 2 };
@@ -32,14 +32,13 @@ void setup() {
 }
 
 void loop() {
-    lora.sendMessage(0, py, 3);
+    lora.sendMessage(0xff, 0, py, 3);
     delay(1000);
     //lora.receive();
 }
 
 // *=> function implementations
 void onReceive(LoraMessage_t message) {
-    Serial.print("Recieve");
     Serial.println(message.payloadLength);
     for (int i = 0; i < message.payloadLength; i++) {
         Serial.print(message.payload[i]);
