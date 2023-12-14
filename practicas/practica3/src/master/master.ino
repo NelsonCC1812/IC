@@ -9,6 +9,7 @@
 
 // *=> var
 uint8_t py[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+#define IS_SENDER 1
 
 extern lora_t lora;
 
@@ -25,22 +26,21 @@ void setup() {
     lora.init(ADDR_LOCAL, onReceive);
     Serial.println("LoRa init");
 
-    LoraConfig_t config = { 9,7, 5, 2 };
-    lora.applyConfig(config, 0b11111);
+    LoraConfig_t config = { 0,7, 5, 2 };
+    lora.applyConfig(config, 0b1111);
     Serial.println("LoRa after config");
-    lora.receive();
+    if (!IS_SENDER) lora.receive();
 }
 
 void loop() {
-    lora.sendMessage(0xff, 0, py, 3);
-    delay(1000);
-    //lora.receive();
+    if (IS_SENDER) lora.sendMessage(0xff, 5, py, 3, false);
+    delay(2500);
 }
 
 // *=> function implementations
 void onReceive(LoraMessage_t message) {
     Serial.println(message.payloadLength);
-    for (int i = 0; i < message.payloadLength; i++) {
+    for (int i = 0; i < 5; i++) {
         Serial.print(message.payload[i]);
         Serial.print(" ");
     }

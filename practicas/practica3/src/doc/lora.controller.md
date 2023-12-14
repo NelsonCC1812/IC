@@ -5,6 +5,7 @@
 - [LoRa controller](#lora-controller)
     - [Protocolo](#protocolo)
       - [Estructura del paquete](#estructura-del-paquete)
+      - [Modo `discovered`](#modo-discovered)
     - [Lora API](#lora-api)
       - [Métodos](#métodos)
       - [Parámetros de configuración (`LoRaConfig_t`)](#parámetros-de-configuración-loraconfig_t)
@@ -12,6 +13,8 @@
     - [Variables de control](#variables-de-control)
       - [Códigos de error](#códigos-de-error)
     - [¿Que contiene el mensaje?](#que-contiene-el-mensaje)
+- [ToDo](#todo)
+  - [No tenemos conexion (**`discover`**)](#no-tenemos-conexion-discover)
 
 
 
@@ -24,14 +27,20 @@
 
 |   byte    |                 Content                 |
 | :-------: | :-------------------------------------: |
-|     1     |           destination address           |
-|     2     |             sender address              |
+|     1     |             sender address              |
+|     2     |           destination address           |
 |     3     |             Msg Counter HB              |
 |     4     |             Msg Counter LB              |
 |     5     | [Operation Code](#códigos-de-operación) |
 |     6     |           Payload Length (n)            |
 | 7 - (7+n) |                 Payload                 |
 |   (8+n)   |               End Segment               |
+
+#### Modo `discovered`
+
+Cuando no se tiene conexión con la placa
+
+<!-- TODO: Hay que elegir si quien inicia la conexión es el slave o el master -->
 
 
 
@@ -93,7 +102,7 @@ struct {
 | :---------: | :---: | :---: | :---: | :-----: | :---------: | :---: | :-------: |
 | Config Mode |   x   |   x   |   x   | txPower | Coding Rate |  SPF  | bandwidth |
 
-Fuera del modo de configuración, tenemos 128 valores posibles (0-127) para pasar:
+Fuera del modo de configuración, tenemos 64 valores posibles (0-63) para pasar:
 
 | Operation Code |     Meaning     |
 | :------------: | :-------------: |
@@ -101,6 +110,9 @@ Fuera del modo de configuración, tenemos 128 valores posibles (0-127) para pasa
 |       1        |   Acknowledge   |
 |       2        | No acknowledge  |
 |       3        |  Data message   |
+|       10       |    discover     |
+
+> Un 1 en el bit 6 significa que el mensaje espera un ACK
 
 
 ### Variables de control
@@ -123,3 +135,15 @@ La API hace uso de ciertas variables de control que están built-in la instancia
 
 ### ¿Que contiene el mensaje?
 El mensaje contiene el último mensaje que se ha recibido.
+
+
+
+# ToDo
+
+## No tenemos conexion (**`discover`**)
+* Aumentamos SPF al maximo
+* Bajamos BW al minimo
+
+
+* Iteramos por todo el espectro de potencias (2-20), reintentando 1-5 veces esperando por un ACK.
+* Cada mensaje contiene la potencia a la que se mandó. Para así mandar el ACK a dicha potencia. 
