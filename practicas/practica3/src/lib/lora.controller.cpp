@@ -59,8 +59,6 @@ void (*onReceive_call)(LoraMessage_t);
 
 
 // *=> vars
-
-volatile bool txDoneFlag = true;
 volatile bool transmitting = false;
 
 uint8_t receivedBytes;
@@ -70,8 +68,6 @@ uint8_t lora_tmp8;
 uint16_t lora_tmp16;
 uint8_t total_bits;
 uint8_t config_payload[2];
-
-uint16_t msgCount = 0;
 
 uint32_t lastSendTime_ms = 0;
 uint32_t txInterval_ms = TX_LAPSE_MS;
@@ -171,27 +167,25 @@ bool _sendConfig(uint8_t destAddr, LoraConfig_t config, byte configMask) {
         break;
     }
 
-    return lora.sendMessage(destAddr, CONF_MODE_MASK & configMask, config_payload, lora_tmp8, OPCODE_ACK_WAITING);
+    return lora.sendMessage(destAddr, CONF_MODE_MASK | configMask, config_payload, lora_tmp8, OPCODE_ACK_WAITING);
 }
 
 
 bool trySendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength) {
 
     while (transmitting || ((millis() - lastSendTime_ms) < txInterval_ms)) delay(MESSAGE_DELAY_MS);
-    transmitting = true;
-    txDoneFlag = false;
 
     while (!LoRa.beginPacket()) delay(10);
+
+    transmitting = true;
 
     lora.isReceiving = false;
 
     LoRa.write(lora.localAddr);
     LoRa.write(destAddr);
 
-    LoRa.write((uint8_t)(msgCount >> 8));
-    LoRa.write((uint8_t)(msgCount & 0xFF));
-
-    msgCount++;
+    LoRa.write((uint8_t)(lora.msgCount >> 8));
+    LoRa.write((uint8_t)(lora.msgCount & 0xFF));
 
     LoRa.write(opCode);
 
@@ -210,24 +204,34 @@ bool trySendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t 
 
 bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength, bool waitsForAck) {
 
+    if (destAddr == BROADCAST_ADDR)  waitsForAck = false;
+
+    lora.nodes[destAddr].ack = false;
+
+
     if (!waitsForAck) {
+        lora.nodes[destAddr].waitingAck = false;
         trySendMessage(destAddr, opCode, payload, payloadLength);
-        while (!lora.receive()) delay(LORA_RECEIVE_WAITING_MS);
-        return true;
+        lora.msgCount++;
+        return false;
     }
-    else {
-        lora.nodes[destAddr].waitingAck = true;
-        lora.nodes[destAddr].ack = false;
-    }
+
+    lora.nodes[destAddr].waitingAck = true;
 
     for (int i = 0; i < CONNECTION_TRY_TIMES; i++) {
 
-        trySendMessage(destAddr, opCode, payload, payloadLength);
+        trySendMessage(destAddr, opCode | ACK_MASK, payload, payloadLength);
 
         while (!lora.receive()) delay(LORA_RECEIVE_WAITING_MS);
         connection_try_time_ms = millis();
-        while (lora.nodes[destAddr].ack == false || ((millis() - connection_try_time_ms) < CONNECTION_TRY_TIMEOUT_MS)) {}
-        if (lora.nodes[destAddr].ack) return true;
+        while ((millis() - connection_try_time_ms) < CONNECTION_TRY_TIMEOUT_MS) {
+
+            if (lora.nodes[destAddr].ack) {
+                lora.msgCount++;
+                return true;
+            }
+            delay(LORA_RECEIVE_WAITING_MS);
+        }
     }
 
     return false;
@@ -236,7 +240,6 @@ bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t pa
 
 void _onReceive(int packetSize) {
 
-    if (transmitting && !txDoneFlag) txDoneFlag = true;
     if (packetSize == 0) return;
 
     currentNode = LoRa.read();
@@ -257,6 +260,7 @@ void _onReceive(int packetSize) {
     if (lora.nodes[currentNode].msg.payloadLength != receivedBytes) { lora.nodes[currentNode].err = ERR_PAYLOAD_NOT_COINCIDES; return; }
     if ((lora.nodes[currentNode].msg.rcpt & lora.localAddr) != lora.localAddr) { lora.nodes[currentNode].err = ERR_TARGET_ERROR; return; }
     if (LoRa.available() && (LoRa.read() != END_SEGMENT)) { lora.nodes[currentNode].msg.endReceived = false; lora.nodes[currentNode].err = ERR_END_NOT_RECEIVED; return; }
+
     lora.nodes[currentNode].err = NO_ERROR;
     lora.nodes[currentNode].msg.rssi = uint8_t(CONST_PROP_RSSI * LoRa.packetRssi());
     lora.nodes[currentNode].msg.snr = uint8_t(CONST_PROP_SNR + LoRa.packetSnr());
@@ -265,7 +269,6 @@ void _onReceive(int packetSize) {
     if (lora.nodes[currentNode].msg.snr <= SNR_REAL_MIN_DB(lora.config.spreadingFactor)) {
         lora.nodes[currentNode].err = ERR_NOISE_EXCEDES_SIGNAL;
     }
-
 
     if (lora.nodes[currentNode].msg.opCode == OPCODE_ACK && lora.nodes[currentNode].waitingAck) {
         lora.nodes[currentNode].waitingAck = false;
@@ -280,23 +283,21 @@ void _onReceive(int packetSize) {
 
 bool _receive() {
 
-    if (transmitting || !txDoneFlag) return false;
+    if (transmitting) return false;
 
-    // MARK: maybe this is not needed
-    //if (duty_cycle < DUTY_CYCLE_MIN) txInterval_ms = TxTime_ms * DUTY_CYCLE_MIN * 100;
 
     LoRa.receive();
 
-    lora.isReceiving = false;
+    lora.isReceiving = true;
 
     return true;
 }
 
 void TxFinished() {
 
-    txDoneFlag = true;
+    if (!transmitting) return;
 
-    if (!transmitting || !txDoneFlag) return;
+    transmitting = false;
 
     TxTime_ms = millis() - tx_begin_ms;
     lapse_ms = tx_begin_ms - lastSendTime_ms;
@@ -306,8 +307,6 @@ void TxFinished() {
 
 
     if (duty_cycle > DUTY_CYCLE_MAX) txInterval_ms = TxTime_ms * DUTY_CYCLE_MAX * 100;
-
-    transmitting = false;
 }
 
 

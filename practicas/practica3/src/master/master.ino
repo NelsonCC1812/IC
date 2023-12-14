@@ -5,7 +5,7 @@
 #define USE_SERIAL 1
 
 #define ADDR_LOCAL  0xE0
-#define ADDR_DEST   0xE0
+#define ADDR_DEST   0xE1
 
 // *=> var
 uint8_t py[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
@@ -33,13 +33,13 @@ void setup() {
 }
 
 void loop() {
-    if (IS_SENDER) lora.sendMessage(0xff, 5, py, 3, false);
-    delay(2500);
+    if (IS_SENDER) Serial.println(String(lora.msgCount) + " " + String(lora.sendMessage(ADDR_DEST, 0, py, 3, false)));
+    delay(5000);
 }
 
 // *=> function implementations
 void onReceive(LoraMessage_t message) {
-    Serial.println(message.payloadLength);
+
     for (int i = 0; i < 5; i++) {
         Serial.print(message.payload[i]);
         Serial.print(" ");

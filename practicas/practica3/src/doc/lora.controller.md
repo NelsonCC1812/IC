@@ -8,6 +8,8 @@
       - [Modo `discovered`](#modo-discovered)
     - [Lora API](#lora-api)
       - [Métodos](#métodos)
+        - [Metodos](#metodos)
+          - [Mandar mensajes](#mandar-mensajes)
       - [Parámetros de configuración (`LoRaConfig_t`)](#parámetros-de-configuración-loraconfig_t)
       - [Códigos de operación](#códigos-de-operación)
     - [Variables de control](#variables-de-control)
@@ -84,6 +86,12 @@ struct {
 
 } lora;
 ```
+
+##### Metodos
+
+###### Mandar mensajes
+
+> Cuando mandamos un mensaje a la dirección de broadcast, no esperamos ACK. Por lo que aún pidiendo ACK, no se devolverá.
 
 #### Parámetros de configuración (`LoRaConfig_t`)
 
