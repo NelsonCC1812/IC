@@ -14,6 +14,7 @@
 #define CM_SPF_MASK     0b10
 #define CM_CR_MASK      0b100
 #define CM_PWR_MASK     0b1000
+#define CM_CONFS_MASK   0b1111
 
 // *=> masks
 
@@ -78,6 +79,8 @@ float duty_cycle;
 
 uint32_t connection_try_time_ms;
 
+uint8_t payload[PAYLOAD_SIZE];
+
 lora_t lora;
 
 // *=> headers
@@ -105,7 +108,7 @@ bool _init(uint8_t localAddr, void (*onReceive_func) (LoraMessage_t msg)) {
 }
 
 // TODO
-LoraConfig_t _extractConfig(byte payload[PAYLOAD_SIZE], byte configMask) {
+LoraConfig_t extractConfig(byte payload[PAYLOAD_SIZE], byte configMask) {
     LoraConfig_t config;
 
     if (!(configMask & CONF_MODE_MASK)) return config;
@@ -220,7 +223,7 @@ bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t pa
 
     for (int i = 0; i < CONNECTION_TRY_TIMES; i++) {
 
-        trySendMessage(destAddr, opCode | ACK_MASK, payload, payloadLength);
+        trySendMessage(destAddr, opCode | OPCODE_ACK_WAITING, payload, payloadLength);
 
         while (!lora.receive()) delay(LORA_RECEIVE_WAITING_MS);
         connection_try_time_ms = millis();
@@ -270,6 +273,9 @@ void _onReceive(int packetSize) {
         lora.nodes[currentNode].err = ERR_NOISE_EXCEDES_SIGNAL;
     }
 
+
+    // TODO: si es un OPCODE_ACK_WAITING & OPCODE_REQCONFIG => se envia configuración
+
     if (lora.nodes[currentNode].msg.opCode == OPCODE_ACK && lora.nodes[currentNode].waitingAck) {
         lora.nodes[currentNode].waitingAck = false;
         lora.nodes[currentNode].ack = 1;
@@ -310,7 +316,7 @@ void TxFinished() {
 }
 
 
-bool _isValidConfig(LoraConfig_t config, byte configMask) {
+bool isValidConfig(LoraConfig_t config, byte configMask) {
 
     if ((CM_BW_MASK & configMask) && (config.bandwidth_index < BW_MIN || config.bandwidth_index > BW_MAX)) return false;
     if ((CM_SPF_MASK & configMask) && (config.spreadingFactor < SPF_MIN || config.spreadingFactor > SPF_MAX)) return false;
@@ -318,4 +324,27 @@ bool _isValidConfig(LoraConfig_t config, byte configMask) {
     if ((CM_PWR_MASK & configMask) && (config.txPower < PWR_MIN || config.txPower > PWR_MAX)) return false;
 
     return true;
+}
+
+bool _discover() {
+
+    uint8_t nodes_quantity = lora.nodes.size();
+
+    for (int i = TX_MIN_PWR; i < TX_MAX_PWR; i++) {
+        payload[0] = i;
+        lora.sendMessage(BROADCAST_ADDR, OPCODE_DISCOVER | OPCODE_ACK_WAITING, payload, 1, true)
+    }
+
+
+    return nodes_quantity != lora.nodes.size() ? true : false;
+}
+
+bool _reqConfig(uint8_t masterAddr) {
+
+    if (!lora.sendMessage(masterAddr, OPCODE_REQCONFIG | OPCODE_ACK_WAITING, NULL, 0, true)) return false;
+
+    byte configMask = lora.nodes[masterAddr].msg.opCode & (CM_CONFS_MASK | CONF_MODE_MASK);
+    LoraConfig_t config = extractConfig(lora.nodes[masterAddr].msg.payload, configMask);
+
+    return _applyConfig(config, configMask);
 }

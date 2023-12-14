@@ -16,6 +16,9 @@ const uint8_t syncWord = 0x22;
 #define CONNECTION_TRY_TIMEOUT_MS 100
 #define LORA_RECEIVE_WAITING_MS 10
 #define MAX_NODES 5
+#define TX_MIN_PWR 2
+#define TX_MAX_PWR 20
+
 
 
 // *=> srn & rssi
@@ -44,6 +47,9 @@ const uint8_t syncWord = 0x22;
 #define OPCODE_ACK 1
 #define OPCODE_NACK 2
 #define OPCODE_DATA 3
+#define OPCODE_DISCOVER 10
+#define OPCODE_REQCONFIG 20
+#define OPCODE_SENDCONFIG 21
 
 #define OPCODE_ACK_WAITING 0b1000000
 
@@ -81,10 +87,11 @@ typedef struct {
 bool _init(uint8_t localAddr, void (*onReceive_func) (LoraMessage_t msg));
 bool _applyConfig(LoraConfig_t config, byte configMask);
 bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength, bool waitsForAck);
-LoraConfig_t _extractConfig(uint8_t payload[PAYLOAD_SIZE], byte configMask);
 void _onReceive(LoraMessage_t message);
 bool _receive();
-bool _isValidConfig(LoraConfig_t config, byte configMask);
+bool _discover();
+bool _reqConfig(uint8_t masterAddr);
+
 
 typedef struct {
     // fields
@@ -94,12 +101,20 @@ typedef struct {
     std::map<uint8_t, Node_t> nodes;
     LoraConfig_t config;
 
+    bool hasDynamicConfig = false;
+    bool canSendConfig = false;
+
     // methods
     bool (*init)(uint8_t localAddr, void  (*onReceive_func) (LoraMessage_t)) = _init;
-    LoraConfig_t(*extractConfig)(uint8_t payload[PAYLOAD_SIZE], byte configMask) = _extractConfig;
     bool (*applyConfig) (LoraConfig_t config, byte configMask) = _applyConfig;
     bool (*sendMessage) (uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength, bool waitsForAck) = _sendMessage;
     bool (*receive) () = _receive;
-    bool (*isValidConfig)(LoraConfig_t config, byte configMask) = _isValidConfig;
+    bool (*discover)() = _discover;
+    bool (*reqConfig)(uint8_t masterAddr) = _reqConfig;
 
 } lora_t;
+
+
+/** // TODO
+ * COnfiguración dinamica
+*/
