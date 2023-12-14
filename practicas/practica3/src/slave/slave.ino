@@ -4,7 +4,7 @@
 // *=> control constants
 #define USE_SERIAL 1
 
-#define ADDR_LOCAL  0xE0
+#define ADDR_LOCAL  0xE1
 #define ADDR_DEST   0xE0
 
 // *=> var
@@ -33,7 +33,8 @@ void setup() {
 }
 
 void loop() {
-    if (IS_SENDER) lora.sendMessage(0xff, 0, py, 5, false);
+    if (IS_SENDER) Serial.println(lora.sendMessage(0xff, 0, py, 5, false));
+    lora.receive();
     delay(2500);
 }
 
