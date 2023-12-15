@@ -9,42 +9,39 @@
 // declare
 
 // *=> config mode
-#define CONF_MODE_MASK  0b10000000
 #define CM_BW_MASK      0b1
 #define CM_SPF_MASK     0b10
 #define CM_CR_MASK      0b100
 #define CM_PWR_MASK     0b1000
 #define CM_CONFS_MASK   0b1111
 
-// *=> masks
 
-#define ACK_MASK 0b1000000
+
 
 // srn & rssi
 uint8_t SNR_REAL_MIN_DB(uint8_t x) { return 10 - 2.5 * x; }
 uint8_t  SNR_MIN(uint8_t x) { return 10 - 2.5 * x * SRN_MIN_GAP; }
-uint8_t  SNR_MAX(uint8_t x) { return (10 - 2.5 * x) * SRN_MAX_RATIO; }
 #define RSSI_MIN -120
 #define RSSI_MAX -40
 
 // *=> config params
-#define BW_BITS 4
 #define BW_MASK 0b1111
+#define BW_BITS 4
 #define BW_MIN 0
 #define BW_MAX 9
 
-#define SPF_BITS 3
 #define SPF_MASK 0b111
+#define SPF_BITS 3
 #define SPF_MIN 6
 #define SPF_MAX 12
 
-#define CR_BITS 2
 #define CR_MASK 0b11
+#define CR_BITS 2
 #define CR_MIN 5
 #define CR_MAX 8
 
-#define PWR_BITS 5
 #define PWR_MASK 0b11111
+#define PWR_BITS 5
 #define PWR_MIN 2
 #define PWR_MAX 20
 
@@ -54,9 +51,9 @@ uint8_t  SNR_MAX(uint8_t x) { return (10 - 2.5 * x) * SRN_MAX_RATIO; }
 
 
 // *=> consts
+void (*onReceive_call)(LoraMessage_t);
 const double bandwidth_kHz[10] = { 7.8E3, 10.4E3, 15.6E3, 20.8E3, 31.25E3,
                             41.7E3, 62.5E3, 125E3, 250E3, 500E3 };
-void (*onReceive_call)(LoraMessage_t);
 
 
 // *=> vars
@@ -84,25 +81,23 @@ uint8_t payload[PAYLOAD_SIZE];
 lora_t lora;
 
 // *=> headers (private)
-void TxFinished();
 bool trySendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength);
+void onReceive(int packetSize);
 LoraConfig_t extractConfig(byte payload[PAYLOAD_SIZE], byte configMask);
-void _onReceive(int packetSize);
+void TxFinished();
 
 // *=> implementations
 
 bool _init(uint8_t localAddr, void (*onReceive_func) (LoraMessage_t msg)) {
 
-
     lora.localAddr = localAddr;
-
     onReceive_call = onReceive_func;
 
     if (!LoRa.begin(FREC_BAND)) return false;
 
     LoRa.setSyncWord(syncWord);
     LoRa.setPreambleLength(8);
-    LoRa.onReceive(_onReceive);
+    LoRa.onReceive(onReceive);
     LoRa.onTxDone(TxFinished);
     LoRa.receive();
 
@@ -113,7 +108,7 @@ bool _init(uint8_t localAddr, void (*onReceive_func) (LoraMessage_t msg)) {
 LoraConfig_t extractConfig(byte payload[PAYLOAD_SIZE], byte configMask) {
     LoraConfig_t config;
 
-    if (!(configMask & CONF_MODE_MASK)) return config;
+    if (!(configMask & OPBIT_CONFIG)) return config;
 
     lora_tmp8 = 0;
 
@@ -150,7 +145,7 @@ bool isValidConfig(LoraConfig_t config, byte configMask) {
 
 bool _applyConfig(LoraConfig_t config, byte configMask) {
 
-    if (!(configMask & CONF_MODE_MASK)) return false;
+    if (!(configMask & OPBIT_CONFIG)) return false;
     if (!isValidConfig(config, configMask)) return false;
 
     if (configMask & CM_BW_MASK)   LoRa.setSignalBandwidth(long(bandwidth_kHz[config.bandwidth_index]));
@@ -182,7 +177,7 @@ bool _sendConfig(uint8_t destAddr, LoraConfig_t config, byte configMask) {
         break;
     }
 
-    return lora.sendMessage(destAddr, CONF_MODE_MASK | configMask, config_payload, lora_tmp8, OPCODE_ACK_WAITING);
+    return lora.sendMessage(destAddr, OPBIT_CONFIG | configMask, config_payload, lora_tmp8, OPBIT_ACK_WAITING);
 }
 
 
@@ -193,7 +188,6 @@ bool trySendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t 
     while (!LoRa.beginPacket()) delay(10);
 
     transmitting = true;
-
     lora.isReceiving = false;
 
     LoRa.write(lora.localAddr);
@@ -235,7 +229,7 @@ bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t pa
 
     for (int i = 0; i < CONNECTION_TRY_TIMES; i++) {
 
-        trySendMessage(destAddr, opCode | OPCODE_ACK_WAITING, payload, payloadLength);
+        trySendMessage(destAddr, opCode | OPBIT_ACK_WAITING, payload, payloadLength);
 
         while (!lora.receive()) delay(LORA_RECEIVE_WAITING_MS);
         connection_try_time_ms = millis();
@@ -245,6 +239,7 @@ bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t pa
                 lora.msgCount++;
                 return true;
             }
+
             delay(LORA_RECEIVE_WAITING_MS);
         }
     }
@@ -253,7 +248,7 @@ bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t pa
 }
 
 
-void _onReceive(int packetSize) {
+void onReceive(int packetSize) {
 
     if (packetSize == 0) return;
 
@@ -276,24 +271,26 @@ void _onReceive(int packetSize) {
     if ((lora.nodes[currentNode].msg.rcpt & lora.localAddr) != lora.localAddr) { lora.nodes[currentNode].err = ERR_TARGET_ERROR; return; }
     if (LoRa.available() && (LoRa.read() != END_SEGMENT)) { lora.nodes[currentNode].msg.endReceived = false; lora.nodes[currentNode].err = ERR_END_NOT_RECEIVED; return; }
 
+
     lora.nodes[currentNode].err = NO_ERROR;
+
     lora.nodes[currentNode].msg.rssi = uint8_t(CONST_PROP_RSSI * LoRa.packetRssi());
     lora.nodes[currentNode].msg.snr = uint8_t(CONST_PROP_SNR + LoRa.packetSnr());
 
 
-    if (lora.nodes[currentNode].msg.snr <= SNR_REAL_MIN_DB(lora.config.spreadingFactor)) {
+    if (lora.nodes[currentNode].msg.snr <= SNR_REAL_MIN_DB(lora.config.spreadingFactor))
         lora.nodes[currentNode].err = ERR_NOISE_EXCEDES_SIGNAL;
-    }
 
 
-    // TODO: si es un OPCODE_ACK_WAITING & OPCODE_REQCONFIG => se envia configuración
+
+    // TODO: si es un OPBIT_ACK_WAITING & OPCODE_REQCONFIG => se envia configuración
 
     if (lora.nodes[currentNode].msg.opCode == OPCODE_ACK && lora.nodes[currentNode].waitingAck) {
         lora.nodes[currentNode].waitingAck = false;
-        lora.nodes[currentNode].ack = 1;
+        lora.nodes[currentNode].ack = true;
     }
 
-    if (lora.nodes[currentNode].msg.opCode & ACK_MASK) lora.sendMessage(currentNode, OPCODE_ACK, NULL, 0, false);
+    if (lora.nodes[currentNode].msg.opCode & OPBIT_ACK_WAITING) lora.sendMessage(currentNode, OPCODE_ACK, NULL, 0, false);
 
     if (onReceive_call) onReceive_call(lora.nodes[currentNode].msg);
 }
@@ -303,9 +300,7 @@ bool _receive() {
 
     if (transmitting) return false;
 
-
     LoRa.receive();
-
     lora.isReceiving = true;
 
     return true;
@@ -333,7 +328,7 @@ bool _discover() {
 
     for (int i = PWR_MIN; i <= PWR_MAX; i++) {
         payload[0] = i;
-        lora.sendMessage(BROADCAST_ADDR, OPCODE_DISCOVER | OPCODE_ACK_WAITING, payload, 1, true);
+        lora.sendMessage(BROADCAST_ADDR, OPCODE_DISCOVER | OPBIT_ACK_WAITING, payload, 1, true);
     }
 
 
@@ -342,9 +337,9 @@ bool _discover() {
 
 bool _reqConfig(uint8_t masterAddr) {
 
-    if (!lora.sendMessage(masterAddr, OPCODE_REQCONFIG | OPCODE_ACK_WAITING, NULL, 0, true)) return false;
+    if (!lora.sendMessage(masterAddr, OPCODE_REQCONFIG | OPBIT_ACK_WAITING, NULL, 0, true)) return false;
 
-    byte configMask = lora.nodes[masterAddr].msg.opCode & (CM_CONFS_MASK | CONF_MODE_MASK);
+    byte configMask = lora.nodes[masterAddr].msg.opCode & (CM_CONFS_MASK | OPBIT_CONFIG);
     LoraConfig_t config = extractConfig(lora.nodes[masterAddr].msg.payload, configMask);
 
     return _applyConfig(config, configMask);
