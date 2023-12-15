@@ -16,8 +16,6 @@ const uint8_t syncWord = 0x22;
 #define CONNECTION_TRY_TIMEOUT_MS 100
 #define LORA_RECEIVE_WAITING_MS 10
 #define MAX_NODES 5
-#define TX_MIN_PWR 2
-#define TX_MAX_PWR 20
 
 
 
@@ -33,16 +31,13 @@ const uint8_t syncWord = 0x22;
 // TODO: maybe this is not needed
 // #define DUTY_CYCLE_MIN 0.9f
 
-// *=> errors
-#define NO_ERROR 0
-#define ERR_END_NOT_RECEIVED 1
-#define ERR_PAYLOAD_NOT_COINCIDES 2
-#define ERR_NOISE_EXCEDES_SIGNAL 3
-#define ERR_TARGET_ERROR 4
-#define ERR_PAYLOAD_EXCEDES_BUFFER 99
 
-// operation code
+// *=> operation code
+// operation bits
 #define OPCODE_CONFIG 0b10000000
+#define OPCODE_ACK_WAITING 0b1000000
+
+// operation codes
 #define OPCODE_CONTROL 0
 #define OPCODE_ACK 1
 #define OPCODE_NACK 2
@@ -51,9 +46,16 @@ const uint8_t syncWord = 0x22;
 #define OPCODE_REQCONFIG 20
 #define OPCODE_SENDCONFIG 21
 
-#define OPCODE_ACK_WAITING 0b1000000
+// *=> errors
+#define NO_ERROR 0
+#define ERR_END_NOT_RECEIVED 1
+#define ERR_PAYLOAD_NOT_COINCIDES 2
+#define ERR_NOISE_EXCEDES_SIGNAL 3
+#define ERR_TARGET_ERROR 4
+#define ERR_PAYLOAD_EXCEDES_BUFFER 99
 
 
+// *=> structs & types
 
 typedef struct {
     uint8_t bandwidth_index;    // [0-9]
@@ -117,4 +119,10 @@ typedef struct {
 
 /** // TODO
  * COnfiguración dinamica
+*/
+
+
+/** TODO
+* CONF_MODE_MASK, OPCODE_CONFIG => OPBIT_CONFIG
+* ACK_MASK, OPCODE_ACK_WAITING => OPBIT_ACK_WAITING
 */

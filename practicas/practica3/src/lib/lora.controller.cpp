@@ -83,6 +83,11 @@ uint8_t payload[PAYLOAD_SIZE];
 
 lora_t lora;
 
+// *=> headers (private)
+void TxFinished();
+bool trySendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength);
+LoraConfig_t extractConfig(byte payload[PAYLOAD_SIZE], byte configMask);
+void _onReceive(int packetSize);
 
 // *=> implementations
 
@@ -130,6 +135,16 @@ LoraConfig_t extractConfig(byte payload[PAYLOAD_SIZE], byte configMask) {
     if (configMask & CM_BW_MASK) { config.bandwidth_index = lora_tmp16 & BW_MASK; lora_tmp16 >>= BW_BITS; }
 
     return config;
+}
+
+bool isValidConfig(LoraConfig_t config, byte configMask) {
+
+    if ((CM_BW_MASK & configMask) && (config.bandwidth_index < BW_MIN || config.bandwidth_index > BW_MAX)) return false;
+    if ((CM_SPF_MASK & configMask) && (config.spreadingFactor < SPF_MIN || config.spreadingFactor > SPF_MAX)) return false;
+    if ((CM_CR_MASK & configMask) && (config.codingRate < CR_MIN || config.codingRate > CR_MAX)) return false;
+    if ((CM_PWR_MASK & configMask) && (config.txPower < PWR_MIN || config.txPower > PWR_MAX)) return false;
+
+    return true;
 }
 
 
@@ -312,24 +327,13 @@ void TxFinished() {
     if (duty_cycle > DUTY_CYCLE_MAX) txInterval_ms = TxTime_ms * DUTY_CYCLE_MAX * 100;
 }
 
-
-bool isValidConfig(LoraConfig_t config, byte configMask) {
-
-    if ((CM_BW_MASK & configMask) && (config.bandwidth_index < BW_MIN || config.bandwidth_index > BW_MAX)) return false;
-    if ((CM_SPF_MASK & configMask) && (config.spreadingFactor < SPF_MIN || config.spreadingFactor > SPF_MAX)) return false;
-    if ((CM_CR_MASK & configMask) && (config.codingRate < CR_MIN || config.codingRate > CR_MAX)) return false;
-    if ((CM_PWR_MASK & configMask) && (config.txPower < PWR_MIN || config.txPower > PWR_MAX)) return false;
-
-    return true;
-}
-
 bool _discover() {
 
     uint8_t nodes_quantity = lora.nodes.size();
 
-    for (int i = TX_MIN_PWR; i < TX_MAX_PWR; i++) {
+    for (int i = PWR_MIN; i <= PWR_MAX; i++) {
         payload[0] = i;
-        lora.sendMessage(BROADCAST_ADDR, OPCODE_DISCOVER | OPCODE_ACK_WAITING, payload, 1, true)
+        lora.sendMessage(BROADCAST_ADDR, OPCODE_DISCOVER | OPCODE_ACK_WAITING, payload, 1, true);
     }
 
 
