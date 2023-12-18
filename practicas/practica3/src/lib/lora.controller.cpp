@@ -1,5 +1,6 @@
 // *=> imports
 #include <arduino.h>
+
 #include <SPI.h>             
 #include <LoRa.h>
 
@@ -16,11 +17,9 @@
 #define CM_CONFS_MASK   0b1111
 
 
-
-
 // srn & rssi
 uint8_t SNR_REAL_MIN_DB(uint8_t x) { return 10 - 2.5 * x; }
-uint8_t  SNR_MIN(uint8_t x) { return 10 - 2.5 * x * SRN_MIN_GAP; }
+uint8_t SNR_MIN(uint8_t x) { return 10 - 2.5 * x * SRN_MIN_GAP; }
 #define RSSI_MIN -120
 #define RSSI_MAX -40
 
@@ -82,11 +81,16 @@ lora_t lora;
 
 // *=> headers (private)
 bool trySendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength);
+
 void onReceive(int packetSize);
-LoraConfig_t extractConfig(byte payload[PAYLOAD_SIZE], byte configMask);
 void TxFinished();
 
+LoraConfig_t extractConfig(byte payload[PAYLOAD_SIZE], byte configMask);
+bool isValidConfig(LoraConfig_t config, byte configMask);
+
 // *=> implementations
+
+// public
 
 bool _init(uint8_t localAddr, void (*onReceive_func) (LoraMessage_t msg)) {
 
@@ -103,113 +107,6 @@ bool _init(uint8_t localAddr, void (*onReceive_func) (LoraMessage_t msg)) {
 
     return true;
 }
-
-// TODO
-LoraConfig_t extractConfig(byte payload[PAYLOAD_SIZE], byte configMask) {
-    LoraConfig_t config;
-
-    if (!(configMask & OPBIT_CONFIG)) return config;
-
-    lora_tmp8 = 0;
-
-    if (configMask & CM_BW_MASK)   lora_tmp8 += BW_BITS;
-    if (configMask & CM_SPF_MASK)  lora_tmp8 += SPF_BITS;
-    if (configMask & CM_CR_MASK)   lora_tmp8 += CR_BITS;
-    if (configMask & CM_PWR_MASK)  lora_tmp8 += PWR_BITS;
-
-    lora_tmp8 = (total_bits > 8 ? 2 : 1);
-
-    switch (lora_tmp8) {
-    case 1: lora_tmp16 = (uint16_t)payload[0]; break;
-    case 2: lora_tmp16 = (uint16_t)((payload[0] << 8) | payload[1]); break;
-    }
-
-    if (configMask & CM_PWR_MASK) { config.txPower = lora_tmp16 & PWR_MASK; lora_tmp16 >>= PWR_BITS; }
-    if (configMask & CM_CR_MASK) { config.codingRate = lora_tmp16 & CR_MASK; lora_tmp16 >>= CR_BITS; }
-    if (configMask & CM_SPF_MASK) { config.spreadingFactor = lora_tmp16 & SPF_MASK; lora_tmp16 >>= SPF_BITS; }
-    if (configMask & CM_BW_MASK) { config.bandwidth_index = lora_tmp16 & BW_MASK; lora_tmp16 >>= BW_BITS; }
-
-    return config;
-}
-
-bool isValidConfig(LoraConfig_t config, byte configMask) {
-
-    if ((CM_BW_MASK & configMask) && (config.bandwidth_index < BW_MIN || config.bandwidth_index > BW_MAX)) return false;
-    if ((CM_SPF_MASK & configMask) && (config.spreadingFactor < SPF_MIN || config.spreadingFactor > SPF_MAX)) return false;
-    if ((CM_CR_MASK & configMask) && (config.codingRate < CR_MIN || config.codingRate > CR_MAX)) return false;
-    if ((CM_PWR_MASK & configMask) && (config.txPower < PWR_MIN || config.txPower > PWR_MAX)) return false;
-
-    return true;
-}
-
-
-bool _applyConfig(LoraConfig_t config, byte configMask) {
-
-    if (!(configMask & OPBIT_CONFIG)) return false;
-    if (!isValidConfig(config, configMask)) return false;
-
-    if (configMask & CM_BW_MASK)   LoRa.setSignalBandwidth(long(bandwidth_kHz[config.bandwidth_index]));
-    if (configMask & CM_SPF_MASK)  LoRa.setSpreadingFactor(config.spreadingFactor);
-    if (configMask & CM_CR_MASK)   LoRa.setCodingRate4(config.codingRate);
-    if (configMask & CM_PWR_MASK)  LoRa.setTxPower(config.txPower, PA_OUTPUT_PA_BOOST_PIN);
-
-    return true;
-}
-
-
-bool _sendConfig(uint8_t destAddr, LoraConfig_t config, byte configMask) {
-
-    lora_tmp16 = 0;
-    total_bits = 0;
-
-    if (CM_BW_MASK & configMask) { lora_tmp16 |= (config.bandwidth_index); lora_tmp16 <<= BW_BITS;  total_bits += BW_BITS; }
-    if (CM_SPF_MASK & configMask) { lora_tmp16 |= (config.spreadingFactor - SPF_MIN); lora_tmp16 <<= SPF_BITS; total_bits += SPF_BITS; }
-    if (CM_CR_MASK & configMask) { lora_tmp16 |= (config.codingRate - CR_MIN); lora_tmp16 <<= CR_BITS; total_bits += CR_BITS; }
-    if (CM_PWR_MASK & configMask) { lora_tmp16 |= (config.txPower - PWR_MIN); lora_tmp16 <<= PWR_BITS; total_bits += PWR_BITS; }
-
-    lora_tmp8 = (total_bits > 8 ? 2 : 1);
-
-    switch (lora_tmp8) {
-    case 1: config_payload[0] = uint8_t(lora_tmp16); break;
-    case 2:
-        config_payload[0] = uint8_t(lora_tmp16 >> 8);
-        config_payload[1] = uint8_t(lora_tmp16);
-        break;
-    }
-
-    return lora.sendMessage(destAddr, OPBIT_CONFIG | configMask, config_payload, lora_tmp8, OPBIT_ACK_WAITING);
-}
-
-
-bool trySendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength) {
-
-    while (transmitting || ((millis() - lastSendTime_ms) < txInterval_ms)) delay(MESSAGE_DELAY_MS);
-
-    while (!LoRa.beginPacket()) delay(10);
-
-    transmitting = true;
-    lora.isReceiving = false;
-
-    LoRa.write(lora.localAddr);
-    LoRa.write(destAddr);
-
-    LoRa.write((uint8_t)(lora.msgCount >> 8));
-    LoRa.write((uint8_t)(lora.msgCount & 0xFF));
-
-    LoRa.write(opCode);
-
-    LoRa.write(payloadLength);
-    LoRa.write(payload, (size_t)payloadLength);
-
-    LoRa.write(END_SEGMENT);
-
-    LoRa.endPacket(true);
-
-    tx_begin_ms = millis();
-
-    return true;
-}
-
 
 bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength, bool waitsForAck) {
 
@@ -247,6 +144,107 @@ bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t pa
     return false;
 }
 
+bool _receive() {
+
+    if (transmitting) return false;
+
+    LoRa.receive();
+    lora.isReceiving = true;
+
+    return true;
+}
+
+void _resetConfig() {
+    lora.applyConfig(BASE_CONFIG, OPBIT_CONFIG | CM_CONFS_MASK);
+}
+
+bool _applyConfig(LoraConfig_t config, byte configMask) {
+
+    if (!(configMask & OPBIT_CONFIG)) return false;
+    if (!isValidConfig(config, configMask)) return false;
+
+    if (configMask & CM_BW_MASK)   LoRa.setSignalBandwidth(long(bandwidth_kHz[config.bandwidth_index]));
+    if (configMask & CM_SPF_MASK)  LoRa.setSpreadingFactor(config.spreadingFactor);
+    if (configMask & CM_CR_MASK)   LoRa.setCodingRate4(config.codingRate);
+    if (configMask & CM_PWR_MASK)  LoRa.setTxPower(config.txPower, PA_OUTPUT_PA_BOOST_PIN);
+
+    return true;
+}
+
+bool _sendConfig(uint8_t destAddr, LoraConfig_t config, byte configMask) {
+
+    lora_tmp16 = 0;
+    total_bits = 0;
+
+    if (CM_BW_MASK & configMask) { lora_tmp16 |= (config.bandwidth_index); lora_tmp16 <<= BW_BITS;  total_bits += BW_BITS; }
+    if (CM_SPF_MASK & configMask) { lora_tmp16 |= (config.spreadingFactor - SPF_MIN); lora_tmp16 <<= SPF_BITS; total_bits += SPF_BITS; }
+    if (CM_CR_MASK & configMask) { lora_tmp16 |= (config.codingRate - CR_MIN); lora_tmp16 <<= CR_BITS; total_bits += CR_BITS; }
+    if (CM_PWR_MASK & configMask) { lora_tmp16 |= (config.txPower - PWR_MIN); lora_tmp16 <<= PWR_BITS; total_bits += PWR_BITS; }
+
+    lora_tmp8 = (total_bits > 8 ? 2 : 1);
+
+    switch (lora_tmp8) {
+    case 1: config_payload[0] = uint8_t(lora_tmp16); break;
+    case 2:
+        config_payload[0] = uint8_t(lora_tmp16 >> 8);
+        config_payload[1] = uint8_t(lora_tmp16);
+        break;
+    }
+
+    return lora.sendMessage(destAddr, OPBIT_CONFIG | configMask, config_payload, lora_tmp8, OPBIT_ACK_WAITING);
+}
+
+bool _discover() {
+
+    uint8_t nodes_quantity = lora.nodes.size();
+
+    for (int i = PWR_MIN; i <= PWR_MAX; i++) {
+        payload[0] = i;
+        lora.sendMessage(BROADCAST_ADDR, OPCODE_DISCOVER | OPBIT_ACK_WAITING, payload, 1, true);
+    }
+
+
+    return nodes_quantity != lora.nodes.size() ? true : false;
+}
+
+bool _reqConfig(uint8_t masterAddr) {
+
+    if (!lora.sendMessage(masterAddr, OPCODE_REQCONFIG | OPBIT_ACK_WAITING, NULL, 0, true)) return false;
+
+    byte configMask = lora.nodes[masterAddr].msg.opCode & (CM_CONFS_MASK | OPBIT_CONFIG);
+    LoraConfig_t config = extractConfig(lora.nodes[masterAddr].msg.payload, configMask);
+
+    return _applyConfig(config, configMask);
+}
+
+// private
+
+LoraConfig_t extractConfig(byte payload[PAYLOAD_SIZE], byte configMask) {
+    LoraConfig_t config;
+
+    if (!(configMask & OPBIT_CONFIG)) return config;
+
+    lora_tmp8 = 0;
+
+    if (configMask & CM_BW_MASK)   lora_tmp8 += BW_BITS;
+    if (configMask & CM_SPF_MASK)  lora_tmp8 += SPF_BITS;
+    if (configMask & CM_CR_MASK)   lora_tmp8 += CR_BITS;
+    if (configMask & CM_PWR_MASK)  lora_tmp8 += PWR_BITS;
+
+    lora_tmp8 = (total_bits > 8 ? 2 : 1);
+
+    switch (lora_tmp8) {
+    case 1: lora_tmp16 = (uint16_t)payload[0]; break;
+    case 2: lora_tmp16 = (uint16_t)((payload[0] << 8) | payload[1]); break;
+    }
+
+    if (configMask & CM_PWR_MASK) { config.txPower = lora_tmp16 & PWR_MASK; lora_tmp16 >>= PWR_BITS; }
+    if (configMask & CM_CR_MASK) { config.codingRate = lora_tmp16 & CR_MASK; lora_tmp16 >>= CR_BITS; }
+    if (configMask & CM_SPF_MASK) { config.spreadingFactor = lora_tmp16 & SPF_MASK; lora_tmp16 >>= SPF_BITS; }
+    if (configMask & CM_BW_MASK) { config.bandwidth_index = lora_tmp16 & BW_MASK; lora_tmp16 >>= BW_BITS; }
+
+    return config;
+}
 
 void onReceive(int packetSize) {
 
@@ -295,17 +293,6 @@ void onReceive(int packetSize) {
     if (onReceive_call) onReceive_call(lora.nodes[currentNode].msg);
 }
 
-
-bool _receive() {
-
-    if (transmitting) return false;
-
-    LoRa.receive();
-    lora.isReceiving = true;
-
-    return true;
-}
-
 void TxFinished() {
 
     if (!transmitting) return;
@@ -322,25 +309,41 @@ void TxFinished() {
     if (duty_cycle > DUTY_CYCLE_MAX) txInterval_ms = TxTime_ms * DUTY_CYCLE_MAX * 100;
 }
 
-bool _discover() {
+bool trySendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength) {
 
-    uint8_t nodes_quantity = lora.nodes.size();
+    while (transmitting || ((millis() - lastSendTime_ms) < txInterval_ms)) delay(MESSAGE_DELAY_MS);
 
-    for (int i = PWR_MIN; i <= PWR_MAX; i++) {
-        payload[0] = i;
-        lora.sendMessage(BROADCAST_ADDR, OPCODE_DISCOVER | OPBIT_ACK_WAITING, payload, 1, true);
-    }
+    while (!LoRa.beginPacket()) delay(10);
 
+    transmitting = true;
+    lora.isReceiving = false;
 
-    return nodes_quantity != lora.nodes.size() ? true : false;
+    LoRa.write(lora.localAddr);
+    LoRa.write(destAddr);
+
+    LoRa.write((uint8_t)(lora.msgCount >> 8));
+    LoRa.write((uint8_t)(lora.msgCount & 0xFF));
+
+    LoRa.write(opCode);
+
+    LoRa.write(payloadLength);
+    LoRa.write(payload, (size_t)payloadLength);
+
+    LoRa.write(END_SEGMENT);
+
+    LoRa.endPacket(true);
+
+    tx_begin_ms = millis();
+
+    return true;
 }
 
-bool _reqConfig(uint8_t masterAddr) {
+bool isValidConfig(LoraConfig_t config, byte configMask) {
 
-    if (!lora.sendMessage(masterAddr, OPCODE_REQCONFIG | OPBIT_ACK_WAITING, NULL, 0, true)) return false;
+    if ((CM_BW_MASK & configMask) && (config.bandwidth_index < BW_MIN || config.bandwidth_index > BW_MAX)) return false;
+    if ((CM_SPF_MASK & configMask) && (config.spreadingFactor < SPF_MIN || config.spreadingFactor > SPF_MAX)) return false;
+    if ((CM_CR_MASK & configMask) && (config.codingRate < CR_MIN || config.codingRate > CR_MAX)) return false;
+    if ((CM_PWR_MASK & configMask) && (config.txPower < PWR_MIN || config.txPower > PWR_MAX)) return false;
 
-    byte configMask = lora.nodes[masterAddr].msg.opCode & (CM_CONFS_MASK | OPBIT_CONFIG);
-    LoraConfig_t config = extractConfig(lora.nodes[masterAddr].msg.payload, configMask);
-
-    return _applyConfig(config, configMask);
+    return true;
 }

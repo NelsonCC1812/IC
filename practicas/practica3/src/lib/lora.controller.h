@@ -1,5 +1,6 @@
 // *=> imports
 #include <map>
+
 #include <LoRa.h>
 
 
@@ -29,8 +30,6 @@ const uint8_t syncWord = 0x22;
 
 #define TX_LAPSE_MS 1000
 #define DUTY_CYCLE_MAX 1.0f // because of law
-// TODO: maybe this is not needed
-// #define DUTY_CYCLE_MIN 0.9f
 
 
 // *=> operation code
@@ -90,10 +89,11 @@ typedef struct {
 
 // lora struc methods
 bool _init(uint8_t localAddr, void (*onReceive_func) (LoraMessage_t msg));
-bool _applyConfig(LoraConfig_t config, byte configMask);
 bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength, bool waitsForAck);
-void _onReceive(LoraMessage_t message);
 bool _receive();
+
+void _resetConfig();
+bool _applyConfig(LoraConfig_t config, byte configMask);
 bool _discover();
 bool _reqConfig(uint8_t masterAddr);
 
@@ -115,13 +115,12 @@ typedef struct {
     bool (*sendMessage) (uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength, bool waitsForAck) = _sendMessage;
     bool (*receive) () = _receive;
 
+    void (*resetConfig)() = _resetConfig;
+    bool (*applyConfig) (LoraConfig_t config, byte configMask) = _applyConfig;
     bool (*discover)() = _discover;
     bool (*reqConfig)(uint8_t masterAddr) = _reqConfig;
-    bool (*applyConfig) (LoraConfig_t config, byte configMask) = _applyConfig;
 
 } lora_t;
 
 
-/** // TODO
- * COnfiguración dinamica
-*/
+const LoraConfig_t BASE_CONFIG = { 0, 7, 5, 12 };
