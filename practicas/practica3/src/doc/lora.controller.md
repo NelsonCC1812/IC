@@ -17,6 +17,7 @@
     - [¿Que contiene el mensaje?](#que-contiene-el-mensaje)
 - [ToDo](#todo)
   - [No tenemos conexion (**`discover`**)](#no-tenemos-conexion-discover)
+  - [ignorar mensajes](#ignorar-mensajes)
 
 
 
@@ -157,3 +158,8 @@ El mensaje contiene el último mensaje que se ha recibido.
 
 * Iteramos por todo el espectro de potencias (2-20), reintentando 1-5 veces esperando por un ACK.
 * Cada mensaje contiene la potencia a la que se mandó. Para así mandar el ACK a dicha potencia. 
+
+
+## ignorar mensajes
+
+* Cuando siguen llegando acks, y no se recive respuesta, ambos deben no aplicar los cambios e ignorar lo que se haya mandado, si es necesario, volver a mandar el mensaje o reconectar.
