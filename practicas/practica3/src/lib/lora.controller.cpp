@@ -18,9 +18,11 @@
 
 
 // srn & rssi
-uint8_t SNR_REAL_MIN_DB(uint8_t x) { return 10 - 2.5 * x; }
-uint8_t SNR_MIN(uint8_t x) { return 10 - 2.5 * x * SRN_MIN_GAP; }
-#define RSSI_MIN -120
+uint8_t SNR_REAL_MIN_DB(uint8_t spf) { return 10 - 2.5 * spf; }
+uint8_t SNR_MIN(uint8_t spf) { return (10 - 2.5 * spf) * SNR_MIN_GAP; }
+
+#define RSSI_MIN_REAL -120
+#define RSSI_MIN()(return RSSI_MIN_REAL*RSSI_MIN_GAP;)
 #define RSSI_MAX -40
 
 // *=> config params
@@ -31,7 +33,7 @@ uint8_t SNR_MIN(uint8_t x) { return 10 - 2.5 * x * SRN_MIN_GAP; }
 
 #define SPF_MASK 0b111
 #define SPF_BITS 3
-#define SPF_MIN 6
+#define SPF_MIN 7
 #define SPF_MAX 12
 
 #define CR_MASK 0b11
@@ -48,10 +50,12 @@ uint8_t SNR_MIN(uint8_t x) { return 10 - 2.5 * x * SRN_MIN_GAP; }
 #define CONST_PROP_RSSI -2
 #define CONST_PROP_SNR 148
 
+#define BW_SIZE 10
+
 
 // *=> consts
 void (*onReceive_call)(LoraMessage_t);
-const double bandwidth_kHz[10] = { 7.8E3, 10.4E3, 15.6E3, 20.8E3, 31.25E3,
+const double bandwidth_kHz[BW_SIZE] = { 7.8E3, 10.4E3, 15.6E3, 20.8E3, 31.25E3,
                             41.7E3, 62.5E3, 125E3, 250E3, 500E3 };
 
 
@@ -77,6 +81,8 @@ uint32_t connection_try_time_ms;
 
 uint8_t payload[PAYLOAD_SIZE];
 
+uint32_t lp_lastPulseSended_ms = 0;
+
 lora_t lora;
 
 // *=> headers (private)
@@ -87,6 +93,9 @@ void TxFinished();
 
 LoraConfig_t extractConfig(byte payload[PAYLOAD_SIZE], byte configMask);
 bool isValidConfig(LoraConfig_t config, byte configMask);
+bool refitConfig(uint8_t node);
+
+uint8_t calcSpfThroughtBW(uint8_t bw_index);
 
 // *=> implementations
 
@@ -160,6 +169,8 @@ void _resetConfig() {
 
 bool _applyConfig(LoraConfig_t config, byte configMask) {
 
+    lora.lastConfig = lora.config;
+
     if (!(configMask & OPBIT_CONFIG)) return false;
     if (!isValidConfig(config, configMask)) return false;
 
@@ -200,7 +211,7 @@ bool _discover() {
 
     for (int i = PWR_MIN; i <= PWR_MAX; i++) {
         payload[0] = i;
-        lora.sendMessage(BROADCAST_ADDR, OPCODE_DISCOVER | OPBIT_ACK_WAITING, payload, 1, true);
+        lora.sendMessage(BROADCAST_ADDR, OPCODE_DISCOVER | OPBIT_ACK_WAITING, payload, 1, true)
     }
 
 
@@ -260,6 +271,8 @@ void onReceive(int packetSize) {
 
     lora.nodes[currentNode].msg.payloadLength = LoRa.read();
 
+    lora.nodes[currentNode].lp_lastConn = millis();
+
     if (lora.nodes[currentNode].msg.payloadLength > PAYLOAD_SIZE) { lora.nodes[currentNode].err = ERR_PAYLOAD_EXCEDES_BUFFER; return; }
 
     receivedBytes = 0;
@@ -268,7 +281,6 @@ void onReceive(int packetSize) {
     if (lora.nodes[currentNode].msg.payloadLength != receivedBytes) { lora.nodes[currentNode].err = ERR_PAYLOAD_NOT_COINCIDES; return; }
     if ((lora.nodes[currentNode].msg.rcpt & lora.localAddr) != lora.localAddr) { lora.nodes[currentNode].err = ERR_TARGET_ERROR; return; }
     if (LoRa.available() && (LoRa.read() != END_SEGMENT)) { lora.nodes[currentNode].msg.endReceived = false; lora.nodes[currentNode].err = ERR_END_NOT_RECEIVED; return; }
-
 
     lora.nodes[currentNode].err = NO_ERROR;
 
@@ -280,17 +292,30 @@ void onReceive(int packetSize) {
         lora.nodes[currentNode].err = ERR_NOISE_EXCEDES_SIGNAL;
 
 
-
-    // TODO: si es un OPBIT_ACK_WAITING & OPCODE_REQCONFIG => se envia configuración
-
     if (lora.nodes[currentNode].msg.opCode == OPCODE_ACK && lora.nodes[currentNode].waitingAck) {
         lora.nodes[currentNode].waitingAck = false;
         lora.nodes[currentNode].ack = true;
     }
 
-    if (lora.nodes[currentNode].msg.opCode & OPBIT_ACK_WAITING) lora.sendMessage(currentNode, OPCODE_ACK, NULL, 0, false);
+    if (lora.nodes[currentNode].msg.opCode == OPCODE_DISCOVER) {
+        LoraConfig_t config;
+        config.txPower = lora.nodes[currentNode].msg.payload[0];
+
+        lora.applyConfig(config, CM_PWR_MASK);
+    }
+
+    if (lora.nodes[currentNode].msg.opCode & OPBIT_ACK_WAITING) {
+
+        payload[0] = (uint8_t)(lora.nodes[currentNode].msg.id >> 8);
+        payload[1] = (uint8_t)(lora.nodes[currentNode].msg.id);
+
+        lora.sendMessage(currentNode, OPCODE_ACK, payload, 2, false);
+    }
 
     if (onReceive_call) onReceive_call(lora.nodes[currentNode].msg);
+
+    // configs fit
+    if (lora.hasDynamicConfig && lora.canSendConfig && refitConfig(currentNode)) lora.sendMessage(currentNode, OPBIT_CONFIG | CM_CONFS_MASK, lora.config, 2, true);
 }
 
 void TxFinished() {
@@ -346,4 +371,73 @@ bool isValidConfig(LoraConfig_t config, byte configMask) {
     if ((CM_PWR_MASK & configMask) && (config.txPower < PWR_MIN || config.txPower > PWR_MAX)) return false;
 
     return true;
+}
+
+bool refitConfig(uint8_t node) {
+
+    bool hasBeingModified = false;
+
+    LoraMessage_t msg = lora.nodes[node].msg;
+    LoraConfig_t config;
+
+    config.bandwidth_index = lora.config.bandwidth;
+    config.codingRate = lora.config.codingRate;
+    config.spreadingFactor = lora.config.spreadingFactor;
+    config.txPower = lora.config.txPower;
+
+
+    if (msg.rssi <= RSSI_MIN()) {
+        hasBeingModified = true;
+        config.txPower++;
+    }
+    if (msg.rssi > RSSI_MAX) {
+        hasBeingModified = true;
+        config.txPower--;
+    }
+
+
+    if (msg.snr <= SNR_MIN(lora.config.spreadingFactor)) {
+        hasBeingModified = true;
+
+        if (lora.config.bandwidth_index <= BW_MIN) return false;
+
+        lora.config.bandwidth_index--;
+        lora.config.spreadingFactor = calcSpfThroughtBW(lora.config.bandwidth_index);
+    }
+
+    if (msg.snr > SNR_MAX) {
+        hasBeingModified = true;
+
+        if (lora.config.bandwidth_index >= BW_MAX) return false;
+
+        lora.config.bandwidth_index++;
+        lora.config.spreadingFactor = calcSpfThroughtBW(lora.config.bandwidth_index);
+    }
+
+
+    return hasBeingModified;
+}
+
+
+uint8_t calcSpfThroughtBW(uint8_t bw_index) {
+    return  ((-bw_index + BW_SIZE + 1) / BW_SIZE) * (SPF_MAX - SPF_MIN + 1) + SPF_MIN;
+}
+
+void lifePulseTest() {
+
+    if ((millis() - lp_lastPulseSended_ms) <= LP_PERIOD_MS) return;
+
+    for (auto addr = lora.nodes.begin(); addr != lora.nodes.end(); addr++) {
+
+        // comprobacion de lp
+        if (lora.sendMessage(addr, OPCODE_PING, NULL, 0, true)) continue;
+
+        // Si la ultima conexion fue hace mucho, se reintenta un numero de veces
+        if ((millis() - lora.nodes[addr].lp_lastConn) < LP_NOCONN_MS) continue;
+
+        for (int i = 0; i < LP_RETRY_TIMES; i++) lora.sendMessage(addr, OPCODE_PING, NULL, 0, true) && break;
+
+        // si ha pasado demasiado tiempo se considera que el nodo no esta
+        if ((millis() - lora.nodes[addr].lp_lastConn) > LP_WAISTED_TIME) lora.nodes.erase(addr);
+    }
 }

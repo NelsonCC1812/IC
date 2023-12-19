@@ -20,10 +20,16 @@ const uint8_t syncWord = 0x22;
 #define LORA_RECEIVE_WAITING_MS     10
 #define CONNECTION_TRY_TIMES        5
 
+// life pulse
+#define LP_PERIOD_MS 5000 // cada cuanto se pregunta
+#define LP_NOCONN_MS 10000 // cuando se considera que no se conecta
+#define LP_RETRY_TIMES 5 // Cuantas veces se intenta conectar con una configuración
+#define LP_WAISTED_TIME 120000 // el nodo no esta
+
 
 // *=> srn & rssi
-#define SRN_MIN_GAP     1
-#define SRN_MAX         0
+#define SNR_MIN_GAP     1
+#define SNR_MAX          0
 #define RSSI_MIN_GAP    .1
 
 // *=> duty cycle
@@ -45,6 +51,7 @@ const uint8_t syncWord = 0x22;
 #define OPCODE_DISCOVER     10
 #define OPCODE_REQCONFIG    20
 #define OPCODE_SENDCONFIG   21
+#define OPCODE_PING         30
 
 // *=> errors
 #define NO_ERROR                    0
@@ -83,6 +90,7 @@ typedef struct {
     bool ack = false;
     bool waitingAck = false;
     uint8_t err = NO_ERROR;
+    uint32_t lp_lastConn;
     LoraMessage_t msg;
 } Node_t;
 
@@ -96,6 +104,8 @@ void _resetConfig();
 bool _applyConfig(LoraConfig_t config, byte configMask);
 bool _discover();
 bool _reqConfig(uint8_t masterAddr);
+void _lifePulseTest();
+
 
 
 typedef struct {
@@ -104,6 +114,7 @@ typedef struct {
     uint16_t msgCount = 0;
     bool isReceiving = false;
 
+    LoraConfig_t lastConfig;
     LoraConfig_t config;
     std::map<uint8_t, Node_t> nodes;
 
@@ -118,7 +129,9 @@ typedef struct {
     void (*resetConfig)() = _resetConfig;
     bool (*applyConfig) (LoraConfig_t config, byte configMask) = _applyConfig;
     bool (*discover)() = _discover;
+    // not used
     bool (*reqConfig)(uint8_t masterAddr) = _reqConfig;
+    void (*lifePulseTest)() = _lifePulseTest;
 
 } lora_t;
 

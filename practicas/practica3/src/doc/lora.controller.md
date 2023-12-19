@@ -122,6 +122,7 @@ Fuera del modo de configuración, tenemos 64 valores posibles (0-63) para pasar:
 |       10       |    discover     |
 |       20       | request config  |
 |       21       |   send config   |
+|       30       |      ping       |
 
 > Un 1 en el bit 6 significa que el mensaje espera un ACK
 
