@@ -101,6 +101,7 @@ bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t pa
 bool _receive();
 
 void _resetConfig();
+bool _sendConfig(uint8_t destAddr, LoraConfig_t config, byte configMask);
 bool _applyConfig(LoraConfig_t config, byte configMask);
 bool _discover();
 bool _reqConfig(uint8_t masterAddr);
@@ -127,6 +128,7 @@ typedef struct {
     bool (*receive) () = _receive;
 
     void (*resetConfig)() = _resetConfig;
+    bool (*sendConfig)(uint8_t destAddr, LoraConfig_t config, byte configMask) = _sendConfig;
     bool (*applyConfig) (LoraConfig_t config, byte configMask) = _applyConfig;
     bool (*discover)() = _discover;
     // not used
