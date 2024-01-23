@@ -15,7 +15,7 @@ const uint8_t syncWord = 0x22;
 #define PAYLOAD_SIZE    10
 
 // *=> timeouts & trys
-#define MESSAGE_DELAY_MS            10
+#define MESSAGE_DELAY_MS            500
 #define CONNECTION_TRY_TIMEOUT_MS   100
 #define LORA_RECEIVE_WAITING_MS     10
 #define CONNECTION_TRY_TIMES        5
@@ -114,6 +114,7 @@ typedef struct {
     uint8_t localAddr;
     uint16_t msgCount = 0;
     bool isReceiving = false;
+    bool autoReceive = false;
 
     LoraConfig_t lastConfig;
     LoraConfig_t config;

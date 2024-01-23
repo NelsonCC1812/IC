@@ -3,6 +3,7 @@
         "*.excalidraw": "json",
         "*.excalidrawlib": "json",
         "*.cpp": "cpp",
-        "map": "cpp"
+        "map": "cpp",
+        "cstddef": "cpp"
     }
 }

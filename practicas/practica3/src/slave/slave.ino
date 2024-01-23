@@ -9,7 +9,6 @@
 
 // *=> var
 uint8_t py[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
-#define IS_SENDER 0
 
 extern lora_t lora;
 
@@ -24,27 +23,29 @@ void setup() {
 
 
     lora.init(ADDR_LOCAL, onReceive);
-    Serial.println("LoRa init");
+    lora.autoReceive = true;
+    lora.hasDynamicConfig = true;
 
-    LoraConfig_t config = { 0,7, 5, 2 };
-    lora.applyConfig(config, 0b1111);
-    Serial.println("LoRa after config");
-    if (!IS_SENDER) lora.receive();
+    if (lora.applyConfig({ 3,9, 5, 2 }, 0b10001111)) Serial.println("Changed config");
+    lora.receive();
+    Serial.println("LoRa init");
 }
 
 void loop() {
-    if (IS_SENDER) Serial.println(lora.sendMessage(0xff, 0, py, 5, false));
-    lora.receive();
-    delay(2500);
+    delay(1000);
 }
 
 // *=> function implementations
 void onReceive(LoraMessage_t message) {
-    Serial.println(message.payloadLength);
+    Serial.println();
+    Serial.println("Received =================================================");
+    Serial.println("SPF " + String(lora.config.spreadingFactor));
+    Serial.println("BW " + String(lora.config.bandwidth_index));
     for (int i = 0; i < 5; i++) {
         Serial.print(message.payload[i]);
         Serial.print(" ");
     }
-    Serial.print(message.id);
+    Serial.println(" ID: " + String(message.id));
+    Serial.println("==========================================================");
     Serial.println();
 }

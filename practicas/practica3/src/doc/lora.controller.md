@@ -15,6 +15,7 @@
     - [Variables de control](#variables-de-control)
       - [Códigos de error](#códigos-de-error)
     - [¿Que contiene el mensaje?](#que-contiene-el-mensaje)
+- [Links](#links)
 - [ToDo](#todo)
   - [No tenemos conexion (**`discover`**)](#no-tenemos-conexion-discover)
   - [ignorar mensajes](#ignorar-mensajes)
@@ -148,6 +149,8 @@ La API hace uso de ciertas variables de control que están built-in la instancia
 ### ¿Que contiene el mensaje?
 El mensaje contiene el último mensaje que se ha recibido.
 
+# Links
+[rssi & snr](https://www.thethingsnetwork.org/docs/lorawan/rssi-and-snr/)
 
 
 # ToDo
