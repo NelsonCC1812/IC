@@ -34,3 +34,7 @@ void uss_measure(uint8_t addr, byte mode, uint16_t* measure, uint16_t* autotune)
     *measure = uint16_t((uss_readRegister(addr, RANGE_HIGH_BYTE) << 8) | uss_readRegister(addr, RANGE_LOW_BYTE));
     *autotune = uint16_t((uss_readRegister(addr, AUTOTUNE_MINIMUM_HIGH_BYTE) << 8) | uss_readRegister(addr, AUTOTUNE_MINIMUM_LOW_BYTE));
 }
+
+
+
+nodes.keys().forEach(key = > node[key].status = ((Date.now() - node[key].timestamp) < TIMEOUT))
