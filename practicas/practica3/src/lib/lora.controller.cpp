@@ -70,8 +70,8 @@ uint16_t lora_tmp16;
 uint8_t total_bits;
 uint8_t config_payload[2];
 
-uint32_t lastSendTime_ms = 0;
-uint32_t txInterval_ms = TX_LAPSE_MS;
+volatile uint32_t lastSendTime_ms = 0;
+volatile uint32_t txInterval_ms = TX_LAPSE_MS;
 uint32_t tx_begin_ms;
 uint32_t TxTime_ms;
 uint32_t lapse_ms;
@@ -143,13 +143,15 @@ bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t pa
 
         trySendMessage(destAddr, opCode | OPBIT_ACK_WAITING, payload, payloadLength);
 
-        while (!lora.receive()) delay(LORA_RECEIVE_WAITING_MS);
+        while (!lora.autoReceive && lora.receive()) {}
+        //while (lora.autoReceive && !lora.isReceiving) {}
+
+        Serial.println("Pasa los bucles");
+
         connection_try_time_ms = millis();
         while ((millis() - connection_try_time_ms) < CONNECTION_TRY_TIMEOUT_MS) {
-
             if (lora.nodes[destAddr].ack) {
                 lora.msgCount++;
-                if (lora.autoReceive && !lora.receive())  delay(LORA_RECEIVE_WAITING_MS);
                 Serial.println("_sendMesassage finished");
                 return true;
             }
@@ -165,9 +167,12 @@ bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t pa
 
 bool _receive() {
 
+    Serial.println("_receive");
     if (transmitting) return false;
+    Serial.println("paso transmitting");
     if (lora.isReceiving) return true;
 
+    Serial.println("Pzso los 2 ifs");
     LoRa.receive();
     lora.isReceiving = true;
 
@@ -192,7 +197,7 @@ bool _applyConfig(LoraConfig_t config, byte configMask) {
     if (configMask & CM_CR_MASK)   LoRa.setCodingRate4(config.codingRate);
     if (configMask & CM_PWR_MASK)  LoRa.setTxPower(config.txPower, PA_OUTPUT_PA_BOOST_PIN);
 
-    lora.autoReceive&& lora.receive();
+    if (lora.autoReceive) LoRa.receive();
 
     return true;
 }
@@ -203,10 +208,11 @@ bool _sendConfig(uint8_t destAddr, LoraConfig_t config, byte configMask) {
     lora_tmp16 = 0;
     total_bits = 0;
 
-    if (CM_BW_MASK & configMask) { lora_tmp16 |= (config.bandwidth_index); lora_tmp16 <<= BW_BITS;  total_bits += BW_BITS; }
-    if (CM_SPF_MASK & configMask) { lora_tmp16 |= (config.spreadingFactor - SPF_MIN); lora_tmp16 <<= SPF_BITS; total_bits += SPF_BITS; }
-    if (CM_CR_MASK & configMask) { lora_tmp16 |= (config.codingRate - CR_MIN); lora_tmp16 <<= CR_BITS; total_bits += CR_BITS; }
-    if (CM_PWR_MASK & configMask) { lora_tmp16 |= (config.txPower - PWR_MIN); lora_tmp16 <<= PWR_BITS; total_bits += PWR_BITS; }
+
+    if (CM_BW_MASK & configMask) { lora_tmp16 |= (config.bandwidth_index); total_bits += BW_BITS; }
+    if (CM_SPF_MASK & configMask) { lora_tmp16 <<= SPF_BITS; lora_tmp16 |= (config.spreadingFactor - SPF_MIN); total_bits += SPF_BITS; }
+    if (CM_CR_MASK & configMask) { lora_tmp16 <<= CR_BITS; lora_tmp16 |= (config.codingRate - CR_MIN); total_bits += CR_BITS; }
+    if (CM_PWR_MASK & configMask) { lora_tmp16 <<= PWR_BITS; lora_tmp16 |= (config.txPower - PWR_MIN); total_bits += PWR_BITS; }
 
     lora_tmp8 = (total_bits > 8 ? 2 : 1);
 
@@ -217,6 +223,7 @@ bool _sendConfig(uint8_t destAddr, LoraConfig_t config, byte configMask) {
         config_payload[1] = uint8_t(lora_tmp16);
         break;
     }
+
 
     return lora.sendMessage(destAddr, OPBIT_CONFIG | configMask, config_payload, lora_tmp8, OPBIT_ACK_WAITING);
 }
@@ -252,26 +259,28 @@ LoraConfig_t extractConfig(byte payload[PAYLOAD_SIZE], byte configMask) {
     Serial.println("extractConfig");
     LoraConfig_t config;
 
-    if (!(configMask & OPBIT_CONFIG)) return config;
-
     lora_tmp8 = 0;
+
 
     if (configMask & CM_BW_MASK)   lora_tmp8 += BW_BITS;
     if (configMask & CM_SPF_MASK)  lora_tmp8 += SPF_BITS;
     if (configMask & CM_CR_MASK)   lora_tmp8 += CR_BITS;
     if (configMask & CM_PWR_MASK)  lora_tmp8 += PWR_BITS;
 
-    lora_tmp8 = (total_bits > 8 ? 2 : 1);
+    lora_tmp8 = (lora_tmp8 > 8 ? 2 : 1);
+
 
     switch (lora_tmp8) {
     case 1: lora_tmp16 = (uint16_t)payload[0]; break;
-    case 2: lora_tmp16 = (uint16_t)((payload[0] << 8) | payload[1]); break;
+    case 2: lora_tmp16 = (uint16_t)((payload[1]) | uint16_t(payload[0] << 8)); break;
     }
 
-    if (configMask & CM_PWR_MASK) { config.txPower = lora_tmp16 & PWR_MASK; lora_tmp16 >>= PWR_BITS; }
-    if (configMask & CM_CR_MASK) { config.codingRate = lora_tmp16 & CR_MASK; lora_tmp16 >>= CR_BITS; }
-    if (configMask & CM_SPF_MASK) { config.spreadingFactor = lora_tmp16 & SPF_MASK; lora_tmp16 >>= SPF_BITS; }
-    if (configMask & CM_BW_MASK) { config.bandwidth_index = lora_tmp16 & BW_MASK; lora_tmp16 >>= BW_BITS; }
+
+    if (configMask & CM_PWR_MASK) { config.txPower = (lora_tmp16 & PWR_MASK) + PWR_MIN; lora_tmp16 >>= PWR_BITS; }
+    if (configMask & CM_CR_MASK) { config.codingRate = (lora_tmp16 & CR_MASK) + CR_MIN; lora_tmp16 >>= CR_BITS; }
+    if (configMask & CM_SPF_MASK) { config.spreadingFactor = (lora_tmp16 & SPF_MASK) + SPF_MIN; lora_tmp16 >>= SPF_BITS; }
+    if (configMask & CM_BW_MASK) { config.bandwidth_index = lora_tmp16 & BW_MASK; }
+
 
     return config;
 }
@@ -336,17 +345,15 @@ void onReceive(int packetSize) {
         lora.sendMessage(currentNode, OPCODE_ACK, payload, 2, false);
     }
 
-
     if (onReceive_call) onReceive_call(lora.nodes[currentNode].msg);
 
-
     // configs fit
-    // if (lora.hasDynamicConfig && lora.canSendConfig) {
-    //     tmpConfig = refitConfig(currentNode);
-    //     if (!tmpConfig.txPower) return;
-    //     lora.sendConfig(currentNode, tmpConfig, CM_CONFS_MASK);
-    //     lora.applyConfig(tmpConfig, CM_CONFS_MASK & OPBIT_CONFIG);
-    // }
+    if (lora.hasDynamicConfig && lora.canSendConfig) {
+        tmpConfig = refitConfig(currentNode);
+        if (!tmpConfig.txPower) return;
+        if (lora.sendConfig(currentNode, tmpConfig, CM_CONFS_MASK)) lora.applyConfig(tmpConfig, CM_CONFS_MASK);
+        if (!lora.sendMessage(currentNode, OPCODE_PING | OPBIT_ACK_WAITING, NULL, 0, true)) lora.applyConfig(lora.lastConfig, CM_CONFS_MASK);
+    }
 }
 
 void TxFinished() {
@@ -364,24 +371,21 @@ void TxFinished() {
 
 
     if (duty_cycle > DUTY_CYCLE_MAX) txInterval_ms = TxTime_ms * DUTY_CYCLE_MAX * 100;
-
     lora.autoReceive&& lora.receive();
 }
 
 bool trySendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength) {
     Serial.println("trySendMessage");
 
-    while (transmitting || ((millis() - lastSendTime_ms) < txInterval_ms)) {
-        Serial.println("PUTO DUTY CYCLE: " + String(millis() - lastSendTime_ms) + " - " + String(txInterval_ms));
+    while (transmitting) { //|| ((millis() - lastSendTime_ms) < txInterval_ms)) {
+        Serial.println("MILLIS(): " + String(millis()));
+        Serial.println(" DUTY CYCLE: " + String(millis() - lastSendTime_ms) + " - " + String(txInterval_ms));
         delay(MESSAGE_DELAY_MS);
     }
 
     Serial.println("trySendMessage despues del dutycycle");
 
     while (!LoRa.beginPacket()) delay(10);
-
-    transmitting = true;
-    lora.isReceiving = false;
 
     LoRa.write(lora.localAddr);
     LoRa.write(destAddr);
@@ -401,6 +405,10 @@ bool trySendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t 
     tx_begin_ms = millis();
 
     Serial.println("trySendMessage finished");
+
+    transmitting = true;
+    lora.isReceiving = false;
+
     return true;
 }
 
@@ -429,11 +437,11 @@ LoraConfig_t refitConfig(uint8_t node) {
     config.txPower = lora.config.txPower;
 
 
-    if (msg.rssi <= RSSI_MIN()) {
+    if (msg.rssi <= RSSI_MIN() && config.txPower < PWR_MAX) {
         hasBeingModified = true;
         config.txPower++;
     }
-    if (msg.rssi > RSSI_MAX) {
+    if (msg.rssi > RSSI_MAX && config.txPower > PWR_MIN) {
         hasBeingModified = true;
         config.txPower--;
     }
@@ -442,19 +450,19 @@ LoraConfig_t refitConfig(uint8_t node) {
     if (msg.snr <= SNR_MIN(lora.config.spreadingFactor)) {
         hasBeingModified = true;
 
-        if (lora.config.bandwidth_index <= BW_MIN) return (LoraConfig_t) { 0, 0, 0, 0 };
+        if (config.bandwidth_index <= BW_MIN) return (LoraConfig_t) { 0, 0, 0, 0 };
 
-        lora.config.bandwidth_index--;
-        lora.config.spreadingFactor = calcSpfThroughtBW(lora.config.bandwidth_index);
+        config.bandwidth_index--;
+        config.spreadingFactor = calcSpfThroughtBW(config.bandwidth_index);
     }
 
     if (msg.snr > SNR_MAX) {
         hasBeingModified = true;
 
-        if (lora.config.bandwidth_index >= BW_MAX) return (LoraConfig_t) { 0, 0, 0, 0 };
+        if (config.bandwidth_index >= BW_MAX) return (LoraConfig_t) { 0, 0, 0, 0 };
 
-        lora.config.bandwidth_index++;
-        lora.config.spreadingFactor = calcSpfThroughtBW(lora.config.bandwidth_index);
+        config.bandwidth_index++;
+        config.spreadingFactor = calcSpfThroughtBW(config.bandwidth_index);
     }
 
 
@@ -464,7 +472,7 @@ LoraConfig_t refitConfig(uint8_t node) {
 
 uint8_t calcSpfThroughtBW(uint8_t bw_index) {
     Serial.println("calcSpfThroughtBW");
-    return  ((-bw_index + BW_SIZE + 1) / BW_SIZE) * (SPF_MAX - SPF_MIN + 1) + SPF_MIN;
+    return  ((-bw_index + BW_SIZE + 1) / BW_SIZE) * (SPF_MAX - SPF_MIN) + SPF_MIN;
 }
 
 

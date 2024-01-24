@@ -113,7 +113,7 @@ typedef struct {
     // fields
     uint8_t localAddr;
     uint16_t msgCount = 0;
-    bool isReceiving = false;
+    volatile bool isReceiving = false;
     bool autoReceive = false;
 
     LoraConfig_t lastConfig;

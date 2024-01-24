@@ -36,7 +36,7 @@ void setup() {
 void loop() {
     Serial.println("mandar mensaje en main");
     Serial.println(String(lora.msgCount) + " " + String(lora.sendMessage(ADDR_DEST, OPBIT_ACK_WAITING, py, 3, false)));
-    delay(5000);
+    delay(20000);
 }
 
 // *=> function implementations
@@ -51,8 +51,7 @@ void onReceive(LoraMessage_t message) {
         Serial.print(" ");
     }
 
-    Serial.print(" ID: " + String(message.id));
-    Serial.println(message.id);
+    Serial.println(" ID: " + String(message.id));
     Serial.println("==========================================================");
     Serial.println();
 }
