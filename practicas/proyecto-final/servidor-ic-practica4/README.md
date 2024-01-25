@@ -1,0 +1,1 @@
+# Servidor del gestor de residuos
