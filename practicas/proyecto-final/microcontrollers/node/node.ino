@@ -6,7 +6,7 @@
 // *=> declares
 #define LORA_ADDR 18
 #define GATEWAY_ADDR 7
-#define USS_ADDR byte(0xE0 >> 1) 
+#define USS_ADDR byte(0xE2 >> 1) 
 #define GAP 50
 #define WIRE_INIT_DELAY 100
 #define BAUDRATE 9600
@@ -18,8 +18,8 @@ extern lora_t lora;
 
 // *=> vars
 uint8_t msg[1];
-uint8_t autotune;
-uit16_t measure;
+uint16_t autotune;
+uint16_t measure;
 
 // *=> headers
 void onReceive(LoraMessage_t msg);
@@ -40,9 +40,13 @@ void setup() {
 
 // *=> loop
 void loop() {
-    //uss_measure(USS_ADDR, REAL_RANGING_MODE_CMS, &measure, &autotune);
-    //msg[0] = (measure <= GAP);
-    Serial.println(String(measure));
-    //lora.sendMessage(GATEWAY_ADDR, OPCODE_DATA, msg, 1, false);
+    uss_measure(USS_ADDR, REAL_RANGING_MODE_CMS, &measure, &autotune);
+    msg[0] = (measure <= GAP);
+    Serial.println(msg[0]);
+    lora.sendMessage(GATEWAY_ADDR, OPCODE_DATA, msg, 1, false);
     delay(1000);
+}
+
+void onReceive(LoraMessage_t msg) {
+    return;
 }
