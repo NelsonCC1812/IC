@@ -11,7 +11,7 @@ void uss_measure(uint8_t addr, uint16_t* measure, uint16_t* autotune);
 
 // *=> implementation
 
-void uss_writeCommand(byte addr, byte command) {
+inline void uss_writeCommand(byte addr, byte command) {
     Wire.beginTransmission(addr);
     Wire.write(USS_COMMAND);
     Wire.write(command);
@@ -24,7 +24,7 @@ byte uss_readRegister(byte addr, byte the_register) {
     Wire.endTransmission();
 
     Wire.requestFrom(addr, byte(1));
-    while (!Wire.available()) {}
+    while (!Wire.available()) { Serial.println("bucle infinito"); }
     return Wire.read();
 }
 
@@ -34,7 +34,3 @@ void uss_measure(uint8_t addr, byte mode, uint16_t* measure, uint16_t* autotune)
     *measure = uint16_t((uss_readRegister(addr, RANGE_HIGH_BYTE) << 8) | uss_readRegister(addr, RANGE_LOW_BYTE));
     *autotune = uint16_t((uss_readRegister(addr, AUTOTUNE_MINIMUM_HIGH_BYTE) << 8) | uss_readRegister(addr, AUTOTUNE_MINIMUM_LOW_BYTE));
 }
-
-
-
-nodes.keys().forEach(key = > node[key].status = ((Date.now() - node[key].timestamp) < TIMEOUT))
