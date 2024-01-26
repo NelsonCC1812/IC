@@ -7,3 +7,9 @@
   justify-content: center;
   align-items: center;
 }
+
+.card{
+  margin: 70px;
+  height: 350px;
+  width: 250px;
+}

@@ -11,9 +11,11 @@ const { SerialPort } = require('serialport');
 const { ReadlineParser } = require('@serialport/parser-readline');
 const serialPort = new SerialPort({ path: '/dev/cu.usbmodem101', baudRate: 9600 });
 
-
+// let nodes = {"18": {"isFull": 0, "status": true}}
 let nodes = {}
-const TIMEOUT_NODES = 60000;
+const TIMEOUT_NODES = 15000;
+const UPDATE_TIME_SERVER = 20000;
+
 
 // Crear una aplicación Express
 const app = express();
@@ -29,6 +31,7 @@ const io = socketIo(server, {
   },
 });
 
+const port = process.env.WS_PORT || 3000;
 
 // Configurar el broker MQTT y crear una instancia de cliente MQTT
 const mqttBroker = process.env.MQTT_BROKER || 'mqtt://test.mosquitto.org';
@@ -45,13 +48,12 @@ io.on('connection', (socket) => {
   // Manejar mensajes desde el cliente Socket.IO
   socket.on('messageFromReactWeb', (message) => {
     console.log(`Mensaje cliente: ${message}`);
-    mqttClient.publish('', message);
+    mqttClient.publish('emmartel', message);
   });
 
 
   // Enviar mensajes MQTT al cliente Socket.IO
   mqttClient.on('message', (topic, message) => {
-    console.log('me llego de mqtt: ', message)
     socket.emit('messageFromReactWeb', `${message}`);
   });
 
@@ -64,8 +66,6 @@ io.on('connection', (socket) => {
 // Manejar conexión MQTT
 mqttClient.on('connect', () => {
   console.log(`Conectado al broker MQTT en ${mqttBroker}`);
-
-
 
   // Suscribirse a todos los temas de emmartel
   mqttClient.subscribe('emmartel/#', (err) => {
@@ -84,35 +84,39 @@ const parser = serialPort.pipe(new ReadlineParser({ delimiter: '\r\n' }));
 parser.on('data', (data) => {
 
   mensajeJSON = JSON.parse(data);
-  mensajeJSON = {...mensajeJSON, timestamp: Date.now()}
+  mensajeJSON.timestamp = Date.now()
+  const {addr, ...props} = mensajeJSON
+  console.log( mensajeJSON)
   // mensajeJSON = {...nodes[Object.keys(mensajeJSON)[0]], mensajeJSON}
   // nodes = {...nodes, mensajeJSON}
 
-  mqttClient.publish('emmartel', `${JSON.stringify(mensajeJSON)}`);
+  nodes[addr] = props
+  updateNodes();
+  mqttClient.publish('emmartel', `${JSON.stringify(nodes)}`);
  
 });
 
 setInterval(() => {
-
-  Object.keys(nodes).forEach(key => {
-    nodes[key].status = ( Date.now() - nodes[key].timestamp < TIMEOUT_NODES )
-  })
   // Publicar datos en MQTT
+  updateNodes()
   mqttClient.publish('emmartel', `${JSON.stringify(nodes)}`);
-}, TIMEOUT_NODES)
+}, UPDATE_TIME_SERVER)
+
+const updateNodes = () => Object.keys(nodes).forEach(key => {
+  nodes[key].status = ( (Date.now() - nodes[key].timestamp) < TIMEOUT_NODES )
+
+})
 
 
 // Ruta para verificar que el servidor está en funcionamiento
 app.get('/', (req, res) => {
   const message = 'Servidor con Socket.IO y MQTT en funcionamiento';
-  Object.keys(nodes).forEach(key => {
-    nodes[key].status = ( Date.now() - nodes[key].timestamp < TIMEOUT_NODES )
-  })
+  
   mqttClient.publish('emmartel', nodes);
   //res.send(nodes);
 });
 
 // Iniciar el servidor y escuchar en el puerto especificado
-server.listen(process.env.WS_PORT || 3000, () => {
-  console.log(`Servidor corriendo en http://localhost:${process.env.WS_PORT || 3000}`);
+server.listen(port, () => {
+  console.log(`Servidor corriendo en http://localhost:${port}`);
 });
