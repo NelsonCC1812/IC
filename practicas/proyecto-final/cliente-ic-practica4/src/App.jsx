@@ -6,10 +6,10 @@ import './App.css'
 const SERVER_URL = 'http://localhost:3000'; // Ajusta la URL de tu servidor
 
 function App() {
- const [nodes, setNodes] = useState({}); // Nuevo estado para almacenar el array de objetos JSON
-
-  useEffect(() => {
-    const socketConnection = io(SERVER_URL);
+ const [nodes, setNodes] = useState( {"18": {"isFull": 0, "status": false}} ); // Nuevo estado para almacenar el array de objetos JSON
+ 
+ useEffect(() => {
+    const socketConnection = io(SERVER_URL); 
 
     const handleConnect = () => {
       console.log('Conectado al servidor Socket.IO');
@@ -21,8 +21,9 @@ function App() {
 
     const handleMqttMessage = (message) => {
       try {
-        console.log(message)
+
         const parsedMessage = JSON.parse(message);
+        console.log(message)
         setNodes(parsedMessage)
       } catch (error) {
         console.error('Error al parsear el mensaje como objeto JSON:', error);
@@ -43,7 +44,7 @@ function App() {
         socketConnection.disconnect();
       }
     };
-  }, [nodes]);
+  }, []);
 
 
   return (
@@ -53,7 +54,6 @@ function App() {
       {/* Genera dinámicamente las tarjetas según el tamaño del array */}
       <div className="row row-cols-1 row-cols-md-3 g-4">
 
-        
         {  Object.keys(nodes).length == 0
         ? <h1>NO DATA</h1>
         : Object.keys(nodes).map((key) => (
@@ -62,9 +62,9 @@ function App() {
               {/* Puedes ajustar la lógica para cargar imágenes según los datos del array */}
               <img src={placaImage} className="card-img-top" alt="Imagen placa MKR1310" />
               <div className="card-body">
-              <h5 className="card-title">Placa</h5>                
-                <p className="card-text">Status: {(nodes[key].status) ? '✅' : '🚩'} </p>
-                <p className="card-text">Full: {(nodes[key].isFull) ? 'full' : 'Not full'} </p>
+              <h5 className="card-title">Placa: {key}</h5>                
+                <p className="card-text">Status: {(nodes[key].status) ? 'ok ✅' : 'error 🚩'} </p>
+                <p className="card-text">Full: {(nodes[key].isFull) ? 'Full' : 'not Full'} </p>
               </div>
             </div>
           </div>
