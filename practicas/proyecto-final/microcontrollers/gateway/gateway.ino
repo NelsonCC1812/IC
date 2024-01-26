@@ -26,4 +26,10 @@ void loop() {
 }
 
 
-// *=> functions implementation
+void onReceive(LoraMessage_t msg) {
+    Serial.println(
+        "{\"" + String(msg.sender) + "\":{"
+        + "\"isFull\":" + String(msg.payload[0])
+        + "}"
+        + "}");
+}

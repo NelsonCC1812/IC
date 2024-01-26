@@ -4,10 +4,10 @@
 #include "uss_commands.h"
 
 // *=> declares
-#define LORA_ADDR 18
+#define LORA_ADDR 200
 #define GATEWAY_ADDR 7
-#define USS_ADDR byte(0xE2 >> 1) 
-#define GAP 50
+#define USS_ADDR byte(0xE0 >> 1) 
+#define GAP 20
 #define WIRE_INIT_DELAY 100
 #define BAUDRATE 9600
 
