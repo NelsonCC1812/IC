@@ -16,7 +16,7 @@ void setup() {
     Serial.begin(9600);
     while (!Serial) {}
 
-    lora.init(LORA_ADDR, NULL);
+    lora.init(LORA_ADDR, onReceive);
     lora.applyConfig({ 0, 7, 5, 2 }, CM_CONFS_MASK);
     lora.receive();
 }

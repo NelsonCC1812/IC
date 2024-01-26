@@ -4,7 +4,7 @@
 #include "uss_commands.h"
 
 // *=> declares
-#define LORA_ADDR 200
+#define LORA_ADDR 10
 #define GATEWAY_ADDR 7
 #define USS_ADDR byte(0xE0 >> 1) 
 #define GAP 20

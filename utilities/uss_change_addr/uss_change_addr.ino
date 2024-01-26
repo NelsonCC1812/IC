@@ -1,7 +1,7 @@
 #include <Wire.h>
 
-#define USS_ORIGINAL_ADDR ((0xE0)>>1)
-#define USS_FINAL_ADDR 0xE2
+#define USS_ORIGINAL_ADDR ((0xE2)>>1)
+#define USS_FINAL_ADDR 0xE0
 #define USS_COMMAND 0x00
 #define USS_DELAY 100
 
