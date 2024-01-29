@@ -7,7 +7,8 @@
 
 // *=> consts
 extern lora_t lora;
-const uint8_t allowed_addrs[3] = {10, 20, 30};
+const uint8_t allowed_addrs[3] = { 10, 20, 30 };
+const LoraConfig_t lora_config = { 0, 7, 5, 2 };
 
 // *=> headers
 void onReceive(LoraMessage_t msg);
@@ -19,7 +20,7 @@ void setup() {
     while (!Serial) {}
 
     lora.init(LORA_ADDR, onReceive);
-    lora.applyConfig({ 0, 7, 5, 2 }, CM_CONFS_MASK);
+    lora.applyConfig(lora_config, CM_CONFS_MASK);
     lora.receive();
 }
 
@@ -30,17 +31,17 @@ void loop() {
 
 void onReceive(LoraMessage_t msg) {
 
-    for(int i = 0; i < ALLOWED_ADDRS; i++){
-        if(allowed_addrs[i] == msg.sender){
+    for (int i = 0; i < ALLOWED_ADDRS; i++) {
+        if (allowed_addrs[i] == msg.sender) {
 
             Serial.println(
-        "{\"addr\":" + String(msg.sender) + ","
-        + "\"isFull\":" + String(msg.payload[0])
-        + "}");
-        
+                "{\"addr\":" + String(msg.sender) + ","
+                + "\"isFull\":" + String(msg.payload[0])
+                + "}");
+
             return;
         }
     }
 
-    
+
 }
