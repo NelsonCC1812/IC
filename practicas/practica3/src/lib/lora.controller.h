@@ -19,6 +19,8 @@ const uint8_t syncWord = 0x22;
 #define CONNECTION_TRY_TIMEOUT_MS   100
 #define LORA_RECEIVE_WAITING_MS     10
 #define CONNECTION_TRY_TIMES        5
+#define APPLIED_CONFIG_TIMEOUT      200
+#define REVERT_CONFIG_TIMEOUT       500
 
 // life pulse
 #define LP_PERIOD_MS 5000 // cada cuanto se pregunta
@@ -97,7 +99,7 @@ typedef struct {
 
 // lora struc methods
 bool _init(uint8_t localAddr, void (*onReceive_func) (LoraMessage_t msg));
-bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength, bool waitsForAck);
+bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength);
 bool _receive();
 
 void _resetConfig();
@@ -106,6 +108,7 @@ bool _applyConfig(LoraConfig_t config, byte configMask);
 bool _discover();
 bool _reqConfig(uint8_t masterAddr);
 void _lifePulseTest();
+void _control();
 
 
 
@@ -125,7 +128,7 @@ typedef struct {
 
     // methods
     bool (*init)(uint8_t localAddr, void  (*onReceive_func) (LoraMessage_t)) = _init;
-    bool (*sendMessage) (uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength, bool waitsForAck) = _sendMessage;
+    bool (*sendMessage) (uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength) = _sendMessage;
     bool (*receive) () = _receive;
 
     void (*resetConfig)() = _resetConfig;
@@ -135,6 +138,8 @@ typedef struct {
     // not used
     bool (*reqConfig)(uint8_t masterAddr) = _reqConfig;
     void (*lifePulseTest)() = _lifePulseTest;
+
+    void (*control)() = _control;
 
 } lora_t;
 

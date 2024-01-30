@@ -26,13 +26,13 @@ void setup() {
     lora.autoReceive = true;
     lora.hasDynamicConfig = true;
 
-    if (lora.applyConfig({ 3,9, 5, 2 }, 0b10001111)) Serial.println("Changed config");
+    if (lora.applyConfig({ 5, 7, 5, 2 }, 0b10001111)) Serial.println("Changed config");
     lora.receive();
     Serial.println("LoRa init");
 }
 
 void loop() {
-    delay(1000);
+    lora.control();
 }
 
 // *=> function implementations

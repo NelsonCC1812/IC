@@ -27,16 +27,17 @@ void setup() {
     lora.canSendConfig = true;
     lora.hasDynamicConfig = true;
 
-    if (lora.applyConfig({ 3,9, 5, 2 }, 0b10001111)) Serial.println("Changed config");
+    if (lora.applyConfig({ 5,7, 5, 2 }, 0b10001111)) Serial.println("Changed config");
     lora.receive();
 
     Serial.println("LoRa init");
 }
 
 void loop() {
-    Serial.println("mandar mensaje en main");
-    Serial.println(String(lora.msgCount) + " " + String(lora.sendMessage(ADDR_DEST, OPBIT_ACK_WAITING, py, 3, false)));
-    delay(20000);
+    Serial.println("Mensaje en main " + String(lora.msgCount) + " " + String(lora.sendMessage(ADDR_DEST, OPBIT_ACK_WAITING, py, 3)));
+    delay(1000);
+    lora.control();
+    delay(5000);
 }
 
 // *=> function implementations
