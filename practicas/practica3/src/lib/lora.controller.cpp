@@ -57,9 +57,7 @@ volatile bool transmitting = false;
 uint8_t receivedBytes;
 uint8_t currentNode;
 
-uint8_t lora_tmp8;
 uint16_t lora_tmp16;
-uint8_t total_bits;
 uint8_t config_payload[2];
 
 volatile uint32_t lastSendTime_ms = 0;
@@ -73,7 +71,6 @@ uint32_t connection_try_time_ms;
 
 uint8_t payload[PAYLOAD_SIZE];
 
-uint32_t lp_lastPulseSended_ms = 0;
 LoraConfig_t tmpConfig;
 
 lora_t lora;
@@ -126,7 +123,6 @@ bool _init(uint8_t localAddr, void (*onReceive_func) (LoraMessage_t msg)) {
 }
 
 
-// FIXME:
 bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength) {
 
     Serial.println("SendMessage");
@@ -221,10 +217,10 @@ bool _applyConfig(LoraConfig_t config) {
     delay(100);
 
     Serial.println("Applied Config ================");
-    Serial.println(String(config.bandwidth_index));
-    Serial.println(String(config.spreadingFactor));
-    Serial.println(String(config.codingRate));
-    Serial.println(String(config.txPower));
+    Serial.println("BW: " + String(config.bandwidth_index));
+    Serial.println("SPF: " + String(config.spreadingFactor));
+    Serial.println("CR: " + String(config.codingRate));
+    Serial.println("PWR: " + String(config.txPower));
     Serial.println("================================");
 
     return true;
@@ -482,15 +478,3 @@ LoraConfig_t refitConfig() {
 uint8_t calcSpfThroughtBW(uint8_t bw_index) {
     return  bw_index * (SPF_MIN - SPF_MAX) / (BW_MAX - BW_MIN) + SPF_MAX;
 }
-
-
-/*
-Errores conocidos
-despues de revertir la config anterior, el master peta
-
-el slave no recive configuraciones (o no las aplica)
-*/
-
-/*
-Cuando se vuelve a aplicar una configuracion peta
-*/
