@@ -7,10 +7,15 @@
 #define ADDR_LOCAL  0xE0
 #define ADDR_DEST   0xE1
 
+#define MESSAGE_PERIOD 10000
+
 // *=> var
 uint8_t py[10] = { 0, 1, 2, 3, 4, 5, 6, 7, 8 };
 
 extern lora_t lora;
+
+
+uint32_t time = MESSAGE_PERIOD;
 
 // *=> main
 
@@ -23,21 +28,19 @@ void setup() {
 
 
     lora.init(ADDR_LOCAL, onReceive);
-    lora.autoReceive = true;
-    lora.canSendConfig = true;
-    lora.hasDynamicConfig = true;
+    lora.isMaster = true;
 
-    if (lora.applyConfig({ 5,7, 5, 2 }, 0b10001111)) Serial.println("Changed config");
-    lora.receive();
+    lora.receive(false);
 
     Serial.println("LoRa init");
 }
 
 void loop() {
-    Serial.println("Mensaje en main " + String(lora.msgCount) + " " + String(lora.sendMessage(ADDR_DEST, OPBIT_ACK_WAITING, py, 3)));
-    delay(1000);
+    if ((millis() - time) > MESSAGE_PERIOD) {
+        Serial.println("Mensaje en main " + String(lora.msgCount) + " " + String(lora.sendMessage(ADDR_DEST, OPBIT_ACK_WAITING, py, 3)));
+        time = millis();
+    }
     lora.control();
-    delay(5000);
 }
 
 // *=> function implementations
@@ -46,6 +49,7 @@ void onReceive(LoraMessage_t message) {
     Serial.println("Received =================================================");
     Serial.println("SPF " + String(lora.config.spreadingFactor));
     Serial.println("BW " + String(lora.config.bandwidth_index));
+    Serial.println("PWR: " + String(lora.config.txPower));
 
     for (int i = 0; i < 5; i++) {
         Serial.print(message.payload[i]);

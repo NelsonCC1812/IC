@@ -23,11 +23,8 @@ void setup() {
 
 
     lora.init(ADDR_LOCAL, onReceive);
-    lora.autoReceive = true;
-    lora.hasDynamicConfig = true;
 
-    if (lora.applyConfig({ 5, 7, 5, 2 }, 0b10001111)) Serial.println("Changed config");
-    lora.receive();
+    lora.receive(false);
     Serial.println("LoRa init");
 }
 
@@ -41,6 +38,7 @@ void onReceive(LoraMessage_t message) {
     Serial.println("Received =================================================");
     Serial.println("SPF " + String(lora.config.spreadingFactor));
     Serial.println("BW " + String(lora.config.bandwidth_index));
+    Serial.println("PWR: " + String(lora.config.txPower));
     for (int i = 0; i < 5; i++) {
         Serial.print(message.payload[i]);
         Serial.print(" ");

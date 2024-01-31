@@ -11,48 +11,28 @@ const uint8_t syncWord = 0x22;
 #define FREC_BAND       868E6 // ICM band; because of law
 #define BROADCAST_ADDR  0xff
 #define END_SEGMENT     0xFF
-#define MAX_NODES       5
 #define PAYLOAD_SIZE    10
 
-// *=> timeouts & trys
-#define MESSAGE_DELAY_MS            500
-#define CONNECTION_TRY_TIMEOUT_MS   100
-#define LORA_RECEIVE_WAITING_MS     10
-#define CONNECTION_TRY_TIMES        5
-#define APPLIED_CONFIG_TIMEOUT      200
-#define REVERT_CONFIG_TIMEOUT       500
-
-// life pulse
-#define LP_PERIOD_MS 5000 // cada cuanto se pregunta
-#define LP_NOCONN_MS 10000 // cuando se considera que no se conecta
-#define LP_RETRY_TIMES 5 // Cuantas veces se intenta conectar con una configuración
-#define LP_WAISTED_TIME 120000 // el nodo no esta
-
+#define CONNECTION_TRY_TIMES 5
+#define CONNECTION_TRY_TIMEOUT_MS 500
+#define REVERT_CONFIG_TIMEOUT 20000
+#define REVERT_BASE_CONFIG_TIMEOUT 60000
 
 // *=> srn & rssi
 #define SNR_MIN_GAP     1
-#define SNR_MAX          0
-#define RSSI_MIN_GAP    .1
+#define SNR_MAX          5
+#define RSSI_MIN_GAP    .4
 
 // *=> duty cycle
-
 #define TX_LAPSE_MS 1000
-#define DUTY_CYCLE_MAX 1.0f // because of law
+#define DUTY_CYCLE_MAX 1.0f
 
 
 // *=> operation code
 // operation bits
 #define OPBIT_CONFIG        0b10000000
-#define OPBIT_ACK_WAITING   0b1000000
-
-// operation codes
-#define OPCODE_CONTROL      0
+#define OPBIT_ACK_WAITING   0b01000000
 #define OPCODE_ACK          1
-#define OPCODE_NACK         2
-#define OPCODE_DATA         3
-#define OPCODE_DISCOVER     10
-#define OPCODE_REQCONFIG    20
-#define OPCODE_SENDCONFIG   21
 #define OPCODE_PING         30
 
 // *=> errors
@@ -75,24 +55,24 @@ typedef struct {
 
 
 typedef struct {
-    uint8_t rcpt, sender;
-    uint16_t id;
-    uint8_t opCode;
+    volatile uint8_t rcpt, sender;
+    volatile uint16_t id;
+    volatile uint8_t opCode;
 
-    uint8_t payloadLength;
+    volatile uint8_t payloadLength;
     uint8_t payload[PAYLOAD_SIZE];
 
-    uint8_t rssi, snr;
+    volatile float rssi, snr;
 
-    bool endReceived;
+    volatile bool endReceived;
+    volatile uint8_t err;
 } LoraMessage_t;
 
 
 typedef struct {
-    bool ack = false;
-    bool waitingAck = false;
-    uint8_t err = NO_ERROR;
-    uint32_t lp_lastConn;
+    volatile bool ack = false;
+    volatile bool waitingAck = false;
+    volatile uint32_t lp_lastConn;
     LoraMessage_t msg;
 } Node_t;
 
@@ -100,13 +80,11 @@ typedef struct {
 // lora struc methods
 bool _init(uint8_t localAddr, void (*onReceive_func) (LoraMessage_t msg));
 bool _sendMessage(uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength);
-bool _receive();
+bool _receive(bool force);
 
 void _resetConfig();
-bool _sendConfig(uint8_t destAddr, LoraConfig_t config, byte configMask);
-bool _applyConfig(LoraConfig_t config, byte configMask);
-bool _discover();
-bool _reqConfig(uint8_t masterAddr);
+bool _sendConfig(uint8_t destAddr, LoraConfig_t config);
+bool _applyConfig(LoraConfig_t config);
 void _lifePulseTest();
 void _control();
 
@@ -117,31 +95,24 @@ typedef struct {
     uint8_t localAddr;
     uint16_t msgCount = 0;
     volatile bool isReceiving = false;
-    bool autoReceive = false;
 
     LoraConfig_t lastConfig;
     LoraConfig_t config;
-    std::map<uint8_t, Node_t> nodes;
-
-    bool hasDynamicConfig = false;
-    bool canSendConfig = false;
+    bool isMaster = false;
+    Node_t node;
 
     // methods
     bool (*init)(uint8_t localAddr, void  (*onReceive_func) (LoraMessage_t)) = _init;
     bool (*sendMessage) (uint8_t destAddr, uint8_t opCode, uint8_t* payload, uint8_t payloadLength) = _sendMessage;
-    bool (*receive) () = _receive;
+    bool (*receive) (bool force) = _receive;
 
     void (*resetConfig)() = _resetConfig;
-    bool (*sendConfig)(uint8_t destAddr, LoraConfig_t config, byte configMask) = _sendConfig;
-    bool (*applyConfig) (LoraConfig_t config, byte configMask) = _applyConfig;
-    bool (*discover)() = _discover;
-    // not used
-    bool (*reqConfig)(uint8_t masterAddr) = _reqConfig;
-    void (*lifePulseTest)() = _lifePulseTest;
+    bool (*sendConfig)(uint8_t destAddr, LoraConfig_t config) = _sendConfig;
+    bool (*applyConfig) (LoraConfig_t config) = _applyConfig;
 
     void (*control)() = _control;
 
 } lora_t;
 
 
-const LoraConfig_t BASE_CONFIG = { 0, 7, 5, 12 };
+const LoraConfig_t BASE_CONFIG = { 7, 8, 5, 8 };
